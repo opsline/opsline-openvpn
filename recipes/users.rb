@@ -91,15 +91,20 @@ else
       end
     end
 
-    tar_cmd = "tar zcf #{u['id']}.tar.gz ca.crt #{u['id']}.crt #{u['id']}.key #{u['id']}.conf #{u['id']}.ovpn"
+    tar_file = "#{u['id']}.tar.gz"
+    tar_cmd = "tar zcf #{tar_file} ca.crt #{u['id']}.crt #{u['id']}.key #{u['id']}.conf #{u['id']}.ovpn"
     if node['opsline-openvpn']['tls_key']
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
-
     execute "create-openvpn-tar-#{u['id']}" do
       cwd node['openvpn']['key_dir']
       command tar_cmd
+      action :run
       not_if { user_action == :delete  }
+    end
+    file tar_file
+      action :delete
+      only_if { user_action == :delete }
     end
   end
 end
