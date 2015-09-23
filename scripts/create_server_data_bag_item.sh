@@ -54,16 +54,17 @@ else
 fi
 
 IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" -a ipaddress 2>/dev/null |grep ipaddress |cut -d: -f2 |tr -d ' ')
+DH_KEY_SIZE=$(knife node show ${VPN_SERVER_NODENAME} -a openvpn.key.size | grep key.size | awk '{print $2}')
 
 # Create the json file with user keys
 knife ssh -a ipaddress -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo echo -n '{
   \"id\": \"${INSTANCE}\",
   \"ca_crt\": \"' > ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/ca.crt | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
   \"ca_key\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/ca.key | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
-  \"dh1024\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/dh1024.pem | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo '\",
-  \"server_crt\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.crt | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo '\",
-    \"server_csr\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.csr | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo '\",
-  \"server_key\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.key | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo '\",
+  \"dh\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/dh${DH_KEY_SIZE}.pem | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
+  \"server_crt\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.crt | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
+  \"server_csr\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.csr | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
+  \"server_key\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/server.key | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
   \"tls_key\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/ta.key | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo '\"
 }' >> ${INSTANCE}.json"
 
