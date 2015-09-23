@@ -33,4 +33,4 @@ plugin_file = '/opt/duo/duo_openvpn.so'
 duo_params = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['mfa']['databag'], 'duo').to_hash
 
 node.override['openvpn']['config']['plugin'] = [ "#{plugin_file} #{duo_params['integration_key']} #{duo_params['secret_key']} #{duo_params['api_host']}" ]
-node.override['openvpn']['config']['reneg-sec'] = node['evidint-openvpn']['mfa']['reneg-sec']
+node.override['openvpn']['config']['reneg-sec'] = node['opsline-openvpn']['mfa']['reneg-sec']
