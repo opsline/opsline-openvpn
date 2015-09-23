@@ -18,3 +18,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# disable server.conf creation by openvpn::default recipe
+# config will be created at the end of this recipe using LWRP
+node.override['openvpn']['configure_default_server'] = false
+
+# install openvpn server
+include_recipe 'openvpn::server'
+
+# route53
+include_recipe 'opsline-openvpn::route53'
+
+# tls auth
+include_recipe 'opsline-openvpn::tls_auth'
+
+# mfa
+include_recipe 'opsline-openvpn::mfa'
+
+# restore server keys
+include_recipe 'opsline-openvpn::persistence'
+
+# set some good-to-have parameters
+node.override['openvpn']['config']['up'] = '/etc/openvpn/server.up.sh'
+node.override['openvpn']['config']['ifconfig-pool-persist'] = '/etc/openvpn/ipp.txt'
+node.override['openvpn']['config']['status'] = '/var/log/openvpn-status.log'
+node.override['openvpn']['config']['verb'] = '4'
+node.override['openvpn']['config']['mute'] = '10'
+
+# configure openvpn server
+openvpn_conf 'server' do
+  notifies :restart, 'service[openvpn]'
+end
+
+# configure users
+include_recipe 'opsline-openvpn::users'
+
+# iptables
+include_recipe 'iptables'
+iptables_rule 'openvpn'
