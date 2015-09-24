@@ -33,7 +33,7 @@ else
     if u.has_key?('action') and u['action'] == :remove
       user_action = :delete
     else
-      user_action :create
+      user_action = :create
     end
 
     execute "generate-openvpn-#{u['id']}" do
@@ -56,26 +56,26 @@ else
     end
 
     begin
-      u = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], u['id'])
+      user_cert = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], u['id'])
     rescue
       Chef::Log.warn("Missing #{node['opsline-openvpn']['persistence']['users_databag']}:#{u['id']} databag item")
     else
       file "#{node['openvpn']['key_dir']}/#{u['id']}.crt" do
-        content "#{u['crt']}"
+        content "#{user_cert['crt']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
       file "#{node['openvpn']['key_dir']}/#{u['id']}.csr" do
-        content "#{u['csr']}"
+        content "#{user_cert['csr']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
       file "#{node['openvpn']['key_dir']}/#{u['id']}.key" do
-        content "#{u['key']}"
+        content "#{user_cert['key']}"
         owner 'root'
         group 'root'
         mode  '0600'
@@ -102,16 +102,16 @@ else
       action :run
       not_if { user_action == :delete  }
     end
-    file tar_file
+    file tar_file do
       action :delete
       only_if { user_action == :delete }
     end
   end
-end
 
-# sync users' vpn keysets to s3 for easy distribution
-execute "sync-openvpn-keys-to-s3" do
-  cwd node['openvpn']['key_dir']
-  command "aws s3 sync #{node['openvpn']['key_dir']} s3://#{node['opsline-openvpn']['users']['s3bucket']} --sse --delete --exclude '*' --include '*.tar.gz'"
-  not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
+  # sync users' vpn keysets to s3 for easy distribution
+  execute "sync-openvpn-keys-to-s3" do
+    cwd node['openvpn']['key_dir']
+    command "aws s3 sync #{node['openvpn']['key_dir']} s3://#{node['opsline-openvpn']['users']['s3bucket']} --sse --delete --exclude '*' --include '*.tar.gz'"
+    not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
+  end
 end
