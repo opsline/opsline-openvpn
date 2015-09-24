@@ -1,5 +1,5 @@
 #
-# Cookbook Name:: opsline-chef-client
+# Cookbook Name:: opsline-openvpn
 # Recipe:: default
 #
 # Author:: Opsline
