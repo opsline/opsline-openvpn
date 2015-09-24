@@ -38,7 +38,7 @@ file "#{key_dir}/ca.key" do
   group 'root'
   mode  '0644'
 end
-file "#{key_dir}/dh#{node[openvpn][key][size]}.pem" do
+file "#{key_dir}/dh#{node['openvpn']['key']['size']}.pem" do
   content openvpn_conf['dh']
   owner 'root'
   group 'root'
