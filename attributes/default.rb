@@ -13,3 +13,4 @@ default['opsline-openvpn']['mfa']['databag'] = 'openvpn_mfa'
 
 default['opsline-openvpn']['route53']['zone_id'] = nil
 default['opsline-openvpn']['route53']['domain_name'] = nil
+default['opsline-openvpn']['route53']['cname_prefix'] = 'vpn'

@@ -18,7 +18,7 @@
 #
 
 if node['opsline-openvpn']['route53']['zone_id']
-  openvpn_hostname = "vpn.#{node['opsline-openvpn']['route53']['domain_name']}"
+  openvpn_hostname = "#{node['opsline-openvpn']['route53']['cname_prefix']}.#{node['opsline-openvpn']['route53']['domain_name']}"
 
   # set the gateway to our IP address
   node.override['openvpn']['gateway'] = openvpn_hostname
