@@ -18,7 +18,7 @@
 #
 
 begin
-  openvpn_conf = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['keys_databag'], 'default')
+  openvpn_conf = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['keys_databag'], 'default').to_hash
 rescue
   Chef::Log.warn("Missing #{node['opsline-openvpn']['persistence']['keys_databag']}:default databag item")
   return
