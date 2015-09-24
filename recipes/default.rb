@@ -55,4 +55,8 @@ include_recipe 'opsline-openvpn::users'
 
 # iptables
 include_recipe 'iptables'
-iptables_rule 'openvpn'
+iptables_rule 'openvpn' do
+  variables({
+    :source_cidr => node['opsline-openvpn']['source_cidr']
+  })
+end

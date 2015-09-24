@@ -1,4 +1,5 @@
 default['opsline-openvpn']['tls_key'] = 'ta.key'
+default['opsline-openvpn']['source_cidr'] = '10.2.0.0/24'
 
 default['opsline-openvpn']['users']['s3bucket'] = nil
 

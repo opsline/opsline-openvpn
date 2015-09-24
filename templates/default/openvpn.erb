@@ -1,2 +1,2 @@
 *nat
--A POSTROUTING -s 10.2.0.0/24 -o eth0 -j MASQUERADE
+-A POSTROUTING -s <%= @source_cidr %> -o eth0 -j MASQUERADE
