@@ -7,5 +7,5 @@ long_description 'Installs/Configures opsline-openvpn'
 version          '0.1.0'
 
 depends 'iptables'
-depends 'openvpn'
+depends 'openvpn', '>= 2.1.1'
 depends 'route53'
