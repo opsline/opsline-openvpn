@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -xe
-
 function show_help {
     echo ""
     echo "$(basename $0)"
