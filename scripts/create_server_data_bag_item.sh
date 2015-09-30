@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 function show_help {
     echo ""
     echo "$(basename $0)"
@@ -9,12 +11,14 @@ function show_help {
     echo "  -k <encrypted data bag secret file>"
     echo "  [-i <vpn server instance name>]"
     echo "  [-x <ssh user name>]"
+    echo "  [-a <ssh host attribute>]"
 }
 
 INSTANCE="default"
 SSH_USER_NAME=$USER
+SSH_HOST_ATTRIBUTE="ec2.public_ipv4"
 
-while getopts "hs:d:k:i:x:" opt; do
+while getopts "hs:d:k:i:x:a:" opt; do
     case "$opt" in
     h)
         show_help
@@ -35,6 +39,9 @@ while getopts "hs:d:k:i:x:" opt; do
     x)
         SSH_USER_NAME=$OPTARG
         ;;
+    a)
+        SSH_HOST_ATTRIBUTE=$OPTARG
+        ;;
     esac
 done
 shift $((OPTIND-1))
@@ -51,11 +58,11 @@ else
   KEYS_DIR="keys_${INSTANCE}"
 fi
 
-IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" -a ipaddress 2>/dev/null |grep ipaddress |cut -d: -f2 |tr -d ' ')
+IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
 DH_KEY_SIZE=$(knife node show ${VPN_SERVER_NODENAME} -a openvpn.key.size | grep key.size | awk '{print $2}')
 
 # Create the json file with user keys
-knife ssh -a ipaddress -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo echo -n '{
+knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo echo -n '{
   \"id\": \"${INSTANCE}\",
   \"ca_crt\": \"' > ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/ca.crt | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
   \"ca_key\": \"' >> ${INSTANCE}.json; sudo cat /etc/openvpn/${KEYS_DIR}/ca.key | perl -p -e 's/\\n/\\\n/' >> ${INSTANCE}.json; echo -n '\",
@@ -70,10 +77,10 @@ knife ssh -a ipaddress -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo ech
 scp ${SSH_USER_NAME}@${IP_ADDRESS}:${INSTANCE}.json /tmp/${INSTANCE}.json
 
 # Create the data bag item with 'knife data bag from file'
-#knife data bag from file $DATABAG /tmp/${INSTANCE}.json --secret-file ${KEY_FILE}
+knife data bag from file $DATABAG /tmp/${INSTANCE}.json --secret-file ${KEY_FILE}
 
 # Remove the data bag item on the remote vpn server
-knife ssh -a ipaddress -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "rm ${INSTANCE}.json"
+knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "rm ${INSTANCE}.json"
 
 # Remove the data bag item file locally
-#rm /tmp/${INSTANCE}.json
+rm /tmp/${INSTANCE}.json
