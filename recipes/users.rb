@@ -30,7 +30,7 @@ if Chef::Config[:solo] && !chef_solo_search_installed?
 else
   search('users', node['openvpn']['user_query']) do |u|
 
-    if u.has_key?('action') and u['action'] == :remove
+    if u.has_key?('action') and u['action'] == "remove"
       user_action = :delete
     else
       user_action = :create
