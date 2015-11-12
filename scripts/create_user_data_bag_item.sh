@@ -63,7 +63,7 @@ else
   KEYS_DIR="keys"
 fi
 
-IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
+IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" --format yaml -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
 
 # Create the json file with user keys
 knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo echo -n '{

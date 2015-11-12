@@ -30,56 +30,67 @@ if Chef::Config[:solo] && !chef_solo_search_installed?
 else
   search('users', node['openvpn']['user_query']) do |u|
 
-    if u.has_key?('action') and u['action'] == :remove
+    if u.has_key?('action') and u['action'] == "remove"
       user_action = :delete
     else
       user_action = :create
     end
 
-    execute "generate-openvpn-#{u['id']}" do
-      command "./pkitool #{u['id']}"
-      cwd '/etc/openvpn/easy-rsa'
-      environment(
-        'EASY_RSA'     => '/etc/openvpn/easy-rsa',
-        'KEY_CONFIG'   => '/etc/openvpn/easy-rsa/openssl.cnf',
-        'KEY_DIR'      => node['openvpn']['key_dir'],
-        'CA_EXPIRE'    => node['openvpn']['key']['ca_expire'].to_s,
-        'KEY_EXPIRE'   => node['openvpn']['key']['expire'].to_s,
-        'KEY_SIZE'     => node['openvpn']['key']['size'].to_s,
-        'KEY_COUNTRY'  => node['openvpn']['key']['country'],
-        'KEY_PROVINCE' => node['openvpn']['key']['province'],
-        'KEY_CITY'     => node['openvpn']['key']['city'],
-        'KEY_ORG'      => node['openvpn']['key']['org'],
-        'KEY_EMAIL'    => node['openvpn']['key']['email']
-      )
-      not_if { ::File.exist?("#{node['openvpn']['key_dir']}/#{u['id']}.crt") or user_action == :delete }
-    end
-
     begin
-      user_cert = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], u['id'])
+      persisted_certs = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], u['id'])
     rescue
       Chef::Log.warn("Missing #{node['opsline-openvpn']['persistence']['users_databag']}:#{u['id']} databag item")
-    else
+      persisted_certs = nil
+    end
+
+    unless persisted_certs.nil?
       file "#{node['openvpn']['key_dir']}/#{u['id']}.crt" do
-        content "#{user_cert['crt']}"
+        content "#{persisted_certs['crt']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
       file "#{node['openvpn']['key_dir']}/#{u['id']}.csr" do
-        content "#{user_cert['csr']}"
+        content "#{persisted_certs['csr']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
       file "#{node['openvpn']['key_dir']}/#{u['id']}.key" do
-        content "#{user_cert['key']}"
+        content "#{persisted_certs['key']}"
         owner 'root'
         group 'root'
         mode  '0600'
         action user_action
+      end
+    else
+      if user_action == :delete
+        %w(crt csr key).each do |ext|
+          file "#{node['openvpn']['key_dir']}/#{u['id']}.#{ext}" do
+            action user_action
+          end
+        end
+      else
+        execute "generate-openvpn-#{u['id']}" do
+          command "./pkitool #{u['id']}"
+          cwd '/etc/openvpn/easy-rsa'
+          environment(
+            'EASY_RSA'     => '/etc/openvpn/easy-rsa',
+            'KEY_CONFIG'   => '/etc/openvpn/easy-rsa/openssl.cnf',
+            'KEY_DIR'      => node['openvpn']['key_dir'],
+            'CA_EXPIRE'    => node['openvpn']['key']['ca_expire'].to_s,
+            'KEY_EXPIRE'   => node['openvpn']['key']['expire'].to_s,
+            'KEY_SIZE'     => node['openvpn']['key']['size'].to_s,
+            'KEY_COUNTRY'  => node['openvpn']['key']['country'],
+            'KEY_PROVINCE' => node['openvpn']['key']['province'],
+            'KEY_CITY'     => node['openvpn']['key']['city'],
+            'KEY_ORG'      => node['openvpn']['key']['org'],
+            'KEY_EMAIL'    => node['openvpn']['key']['email']
+          )
+          not_if { ::File.exist?("#{node['openvpn']['key_dir']}/#{u['id']}.crt") }
+        end
       end
     end
 
@@ -100,7 +111,7 @@ else
       cwd node['openvpn']['key_dir']
       command tar_cmd
       action :run
-      not_if { user_action == :delete  }
+      not_if { user_action == :delete }
     end
     file tar_file do
       action :delete

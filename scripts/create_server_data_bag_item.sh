@@ -58,7 +58,7 @@ else
   KEYS_DIR="keys_${INSTANCE}"
 fi
 
-IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
+IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" --format yaml -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
 DH_KEY_SIZE=$(knife node show ${VPN_SERVER_NODENAME} -a openvpn.key.size | grep key.size | awk '{print $2}')
 
 # Create the json file with user keys
