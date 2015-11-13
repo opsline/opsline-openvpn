@@ -1,0 +1,9 @@
+{
+  "id": "testUser",
+  "comment": "test",
+  "home": "/home/testUser",
+  "shell": "/bin/bash",
+  "groups": [
+    "sysadmin"
+  ]
+}

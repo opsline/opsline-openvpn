@@ -1,0 +1,10 @@
+{
+  "id": "testUser-remove",
+  "comment": "test",
+  "home": "/home/testUser-remove",
+  "shell": "/bin/bash",
+  "groups": [
+    "sysadmin"
+  ],
+  "action": "remove"
+}
