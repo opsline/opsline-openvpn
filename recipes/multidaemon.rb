@@ -188,8 +188,8 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
       template "#{key_dir}/#{u['id']}.#{ext}" do
         source 'client.conf.erb'
         variables(
-          username u['id']
-          port v['port']
+          username: u['id'],
+          port: v['port']
         )
         action user_action
       end
