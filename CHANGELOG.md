@@ -1,5 +1,8 @@
 # CHANGELOG for opsline-openvpn
 
+## 0.1.2
+* adding multidaemon support
+
 ## 0.1.1
 * fixing user certs deletes
 * fixing data bag scripts when json format is configured in knife
