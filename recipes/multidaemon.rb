@@ -21,6 +21,10 @@
 include_recipe 'opsline-openvpn::default'
 
 node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
+
+  # clone the default server config to get common attributes for this daemon's server_*.conf template
+  config = node['openvpn']['config'].dup
+
   # import default routes
   routes = []
   routes << node['openvpn']['push_routes']
@@ -39,6 +43,7 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
 
   template "#{key_dir}/openssl.cnf" do
     source 'openssl.cnf.erb'
+    cookbook 'openvpn'
     owner 'root'
     group 'root'
     mode  '0644'
@@ -85,7 +90,7 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
 
   # create custom server cert
   bash 'openvpn-server-key' do
-    environment('KEY_CN' => 'server')
+    environment('KEY_CN' => "server_#{k}")
     code <<-EOF
       openssl req -batch -days #{node["openvpn"]["key"]["expire"]} \
         -nodes -new -newkey rsa:#{key_size} -keyout #{key_dir}/server.key \
@@ -106,15 +111,42 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
     group 'root'
   end
 
-  v['key_dir'] = "#{key_dir}"
-  v['log'] = "/var/log/openvpn_#{k}.log"
-  v['server'] = "#{v['subnet']} #{v['netmask']}"
+  # copy the CA key to each daemon's keys dir for generating user keys
+  file "#{key_dir}/ca.key" do
+    content lazy { IO.read("#{node["openvpn"]["signing_ca_key"]}") }
+    action :create
+    owner 'root'
+    group 'root'
+  end
+
+  config.store('dev', "#{v['device']}")
+  config.store('ca', "#{key_dir}/ca.crt")
+  config.store('key', "#{key_dir}/server.key")
+  config.store('cert', "#{key_dir}/server.crt")
+  config.store('dh', "#{key_dir}/dh#{node['openvpn']['key']['size']}.pem")
+  config.store('log', "/var/log/openvpn_#{k}.log")
+  config.store('server', "#{v['subnet']} #{v['netmask']}")
+  config.store('port', "#{v['port']}")
+
 
   # create custom server.conf using custom opsline_openvpn_conf provider
   opsline_openvpn_conf "server_#{k}" do
-    config v
-    push_routes routes.flatten!.sort!.uniq!
+    config config
+    push_routes routes.flatten!.sort!
+    push_options node['openvpn']['push_options']
     notifies :restart, 'service[openvpn]'
+  end
+
+  # calculate source CIDR for this openvpn daemon
+  cidr_mask = IPAddr.new("#{v['netmask']}").to_i.to_s(2).count("1")
+  source_cidr = "#{v['subnet']}/#{cidr_mask}"
+  log "Using source CIDR: #{source_cidr} for openvpn daemon '#{k}'"
+
+  iptables_rule "openvpn_#{k}" do
+    source 'openvpn.erb'
+    variables({
+      :source_cidr => source_cidr
+    })
   end
 
   # create client configs for each user in the relevant allowed group for this daemon
@@ -197,15 +229,25 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
 
     tar_file = "#{u['id']}-#{k}.tar.gz"
     tar_cmd = "tar zcf #{tar_file} ca.crt #{u['id']}.crt #{u['id']}.key #{u['id']}.conf #{u['id']}.ovpn"
+    
     if node['opsline-openvpn']['tls_key']
+      # copy the TLS key to each daemon's keys dir
+      file "#{key_dir}/#{node['opsline-openvpn']['tls_key']}" do
+        content lazy { IO.read("#{node['openvpn']['key_dir']}/#{node['opsline-openvpn']['tls_key']}") }
+        action :create
+        owner 'root'
+        group 'root'
+      end
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
+
     execute "create-openvpn-tar-#{u['id']}" do
       cwd "#{key_dir}"
       command tar_cmd
       action :run
       not_if { user_action == :delete }
     end
+
     file tar_file do
       action :delete
       only_if { user_action == :delete }

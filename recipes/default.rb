@@ -19,6 +19,9 @@
 # limitations under the License.
 #
 
+# required for calculating source CIDR
+require 'ipaddr'
+
 # disable server.conf creation by openvpn::default recipe
 # config will be created at the end of this recipe using LWRP
 node.override['openvpn']['configure_default_server'] = false
@@ -53,10 +56,16 @@ end
 # configure users
 include_recipe 'opsline-openvpn::users'
 
+# calculate source CIDR for this openvpn daemon
+cidr_mask = IPAddr.new("#{node['openvpn']['netmask']}").to_i.to_s(2).count("1")
+source_cidr = "#{node['openvpn']['subnet']}/#{cidr_mask}"
+log "Using source CIDR: #{source_cidr}"
+
 # iptables
 include_recipe 'iptables'
+
 iptables_rule 'openvpn' do
   variables({
-    :source_cidr => node['opsline-openvpn']['source_cidr']
+    :source_cidr => source_cidr
   })
 end

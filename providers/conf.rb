@@ -23,7 +23,7 @@ use_inline_resources if defined?(use_inline_resources)
 
 action :create do
   template "/etc/openvpn/#{new_resource.name}.conf" do
-    cookbook new_resource.cookbook
+    cookbook 'openvpn'
     source 'server.conf.erb'
     owner 'root'
     group 'root'
