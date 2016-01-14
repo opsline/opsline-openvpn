@@ -149,117 +149,12 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
     })
   end
 
-  # create client configs for each user in the relevant allowed group for this daemon
-  search('users', "groups:#{v['allowed_group']}") do |u|
-
-     if u.has_key?('action') and u['action'] == "remove"
-      user_action = :delete
-    else
-      user_action = :create
-    end
-
-    begin
-      persisted_certs = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], u['id'])
-    rescue
-      Chef::Log.warn("Missing #{node['opsline-openvpn']['persistence']['users_databag']}:#{u['id']} databag item")
-      persisted_certs = nil
-    end
-
-    unless persisted_certs.nil?
-      file "#{key_dir}/#{u['id']}.crt" do
-        content "#{persisted_certs['crt']}"
-        owner 'root'
-        group 'root'
-        mode  '0644'
-        action user_action
-      end
-      file "#{key_dir}/#{u['id']}.csr" do
-        content "#{persisted_certs['csr']}"
-        owner 'root'
-        group 'root'
-        mode  '0644'
-        action user_action
-      end
-      file "#{key_dir}/#{u['id']}.key" do
-        content "#{persisted_certs['key']}"
-        owner 'root'
-        group 'root'
-        mode  '0600'
-        action user_action
-      end
-    else
-      if user_action == :delete
-        %w(crt csr key).each do |ext|
-          file "#{key_dir}/#{u['id']}.#{ext}" do
-            action user_action
-          end
-        end
-      else
-        execute "generate-openvpn-#{u['id']}" do
-          command "./pkitool #{u['id']}"
-          cwd '/etc/openvpn/easy-rsa'
-          environment(
-            'EASY_RSA'     => '/etc/openvpn/easy-rsa',
-            'KEY_CONFIG'   => "#{key_dir}/openssl.cnf",
-            'KEY_DIR'      => "#{key_dir}",
-            'CA_EXPIRE'    => node['openvpn']['key']['ca_expire'].to_s,
-            'KEY_EXPIRE'   => node['openvpn']['key']['expire'].to_s,
-            'KEY_SIZE'     => node['openvpn']['key']['size'].to_s,
-            'KEY_COUNTRY'  => node['openvpn']['key']['country'],
-            'KEY_PROVINCE' => node['openvpn']['key']['province'],
-            'KEY_CITY'     => node['openvpn']['key']['city'],
-            'KEY_ORG'      => node['openvpn']['key']['org'],
-            'KEY_EMAIL'    => node['openvpn']['key']['email']
-          )
-          not_if { ::File.exist?("#{key_dir}/#{u['id']}.crt") }
-        end
-      end
-    end
-
-    %w(conf ovpn).each do |ext|
-      template "#{key_dir}/#{u['id']}.#{ext}" do
-        source 'client.conf.erb'
-        variables(
-          username: u['id'],
-          port: v['port']
-        )
-        action user_action
-      end
-    end
-
-    tar_file = "#{u['id']}-#{k}.tar.gz"
-    tar_cmd = "tar zcf #{tar_file} ca.crt #{u['id']}.crt #{u['id']}.key #{u['id']}.conf #{u['id']}.ovpn"
-    
-    if node['opsline-openvpn']['tls_key']
-      # copy the TLS key to each daemon's keys dir
-      file "#{key_dir}/#{node['opsline-openvpn']['tls_key']}" do
-        content lazy { IO.read("#{node['openvpn']['key_dir']}/#{node['opsline-openvpn']['tls_key']}") }
-        action :create
-        owner 'root'
-        group 'root'
-      end
-      tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
-    end
-
-    execute "create-openvpn-tar-#{u['id']}" do
-      cwd "#{key_dir}"
-      command tar_cmd
-      action :run
-      not_if { user_action == :delete }
-    end
-
-    file tar_file do
-      action :delete
-      only_if { user_action == :delete }
-    end
-
-  end
-
-  # sync users' vpn keysets to s3 for easy distribution
-  execute "sync-openvpn-keys-to-s3" do
-    cwd "#{key_dir}"
-    command "aws s3 sync #{key_dir} s3://#{node['opsline-openvpn']['users']['s3bucket']}/#{k} --sse --delete --exclude '*' --include '*.tar.gz'"
-    not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
+  opsline_openvpn_user_keys "Restore user keys from databag for openvpn daemon '#{k}'" do
+    user_databag 'users'
+    user_query "groups:#{v['allowed_group']}"
+    key_dir "#{key_dir}"
+    bucket_dir "#{k}"
+    port "#{v['port']}".to_i
   end
 
 }

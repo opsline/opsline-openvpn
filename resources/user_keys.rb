@@ -1,8 +1,10 @@
-# Recipe:: users
+#
+# Cookbook Name:: opsline-openvpn
+# Resource:: user_keys
 #
 # Author:: Opsline
 #
-# Copyright 2014, OpsLine, LLC.
+# Copyright 2015, OpsLine, LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +19,12 @@
 # limitations under the License.
 #
 
-def chef_solo_search_installed?
-  klass = ::Search.const_get('Helper')
-  return klass.is_a?(Class)
-rescue NameError
-  return false
-end
+actions :create
+default_action :create
 
-if Chef::Config[:solo] && !chef_solo_search_installed?
-  Chef::Log.warn('This recipe uses search. Chef-Solo does not support search unless '\
-    'you install the chef-solo-search cookbook.')
-else
-  opsline_openvpn_user_keys 'Restore user keys from databag' do
-    user_databag 'users'
-    user_query '*:*'
-    key_dir '/etc/openvpn'
-    bucket_dir ''
-    port 1194
-  end
-
-end
+attribute :name, :kind_of => String, :name_attribute => true
+attribute :user_databag, :kind_of => String, :default => 'users'
+attribute :user_query, :kind_of => String, :default => '*:*'
+attribute :key_dir, :kind_of => String, :default => '/etc/openvpn'
+attribute :bucket_dir, :kind_of => String, :default => ''
+attribute :port, :kind_of => Integer, :default => 1194

@@ -39,7 +39,11 @@ include_recipe 'opsline-openvpn::tls_auth'
 include_recipe 'opsline-openvpn::mfa'
 
 # restore server keys
-include_recipe 'opsline-openvpn::persistence'
+opsline_openvpn_server_keys 'restore default openvpn server keys' do
+  databag_item 'default'
+  key_dir '/etc/openvpn'
+  action :create
+end
 
 # set some good-to-have parameters
 node.override['openvpn']['config']['up'] = '/etc/openvpn/server.up.sh'
