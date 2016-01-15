@@ -26,5 +26,5 @@ attribute :name, :kind_of => String, :name_attribute => true
 attribute :user_databag, :kind_of => String, :default => 'users'
 attribute :user_query, :kind_of => String, :default => '*:*'
 attribute :key_dir, :kind_of => String, :default => '/etc/openvpn'
-attribute :bucket_dir, :kind_of => String, :default => ''
 attribute :port, :kind_of => Integer, :default => 1194
+attribute :instance, :kind_of => String, :default => nil

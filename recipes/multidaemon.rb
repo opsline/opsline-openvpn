@@ -149,11 +149,11 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
     })
   end
 
-  opsline_openvpn_user_keys "Restore user keys from databag for openvpn daemon '#{k}'" do
+  opsline_openvpn_user_keys "user keys for openvpn daemon '#{k}'" do
     user_databag 'users'
     user_query "groups:#{v['allowed_group']}"
-    key_dir "#{key_dir}"
-    bucket_dir "#{k}"
+    key_dir key_dir
+    instance k
     port "#{v['port']}".to_i
   end
 

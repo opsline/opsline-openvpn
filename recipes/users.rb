@@ -17,23 +17,9 @@
 # limitations under the License.
 #
 
-def chef_solo_search_installed?
-  klass = ::Search.const_get('Helper')
-  return klass.is_a?(Class)
-rescue NameError
-  return false
-end
-
-if Chef::Config[:solo] && !chef_solo_search_installed?
-  Chef::Log.warn('This recipe uses search. Chef-Solo does not support search unless '\
-    'you install the chef-solo-search cookbook.')
-else
-  opsline_openvpn_user_keys 'Restore user keys from databag' do
-    user_databag 'users'
-    user_query '*:*'
-    key_dir '/etc/openvpn'
-    bucket_dir ''
-    port 1194
-  end
-
+opsline_openvpn_user_keys 'default user keys' do
+  user_databag 'users'
+  user_query '*:*'
+  key_dir '/etc/openvpn'
+  port 1194
 end
