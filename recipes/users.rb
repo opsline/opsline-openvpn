@@ -20,6 +20,6 @@
 opsline_openvpn_user_keys 'default user keys' do
   user_databag 'users'
   user_query '*:*'
-  key_dir '/etc/openvpn'
+  key_dir '/etc/openvpn/keys'
   port 1194
 end

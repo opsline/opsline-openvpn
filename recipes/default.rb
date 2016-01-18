@@ -41,7 +41,7 @@ include_recipe 'opsline-openvpn::mfa'
 # restore server keys
 opsline_openvpn_server_keys 'restore default openvpn server keys' do
   databag_item 'default'
-  key_dir '/etc/openvpn'
+  key_dir '/etc/openvpn/keys'
   action :create
 end
 

@@ -32,7 +32,7 @@ action :create do
     end
 
     if new_resource.instance.nil?
-      databag_item_name = i['id']
+      databag_item_name = u['id']
     else
       databag_item_name = "#{new_resource.instance}_#{u['id']}"
     end

@@ -33,90 +33,12 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
 
   # custom key dir for this daemon
   key_dir  = "/etc/openvpn/keys_#{k}"
-  key_size = node['openvpn']['key']['size']
 
-  directory key_dir do
-    owner 'root'
-    group 'root'
-    mode  '0700'
-  end
-
-  template "#{key_dir}/openssl.cnf" do
-    source 'openssl.cnf.erb'
-    cookbook 'openvpn'
-    owner 'root'
-    group 'root'
-    mode  '0644'
-    variables(
-      :key_dir => "#{key_dir}"
-    )
-  end
-
-  file "#{key_dir}/index.txt" do
-    owner 'root'
-    group 'root'
-    mode  '0600'
+  # restore server keys
+  opsline_openvpn_server_keys 'restore #{k} openvpn server keys' do
+    databag_item k
+    key_dir key_dir
     action :create
-  end
-
-  file "#{key_dir}/serial" do
-    content '01'
-    not_if { ::File.exists?("#{key_dir}/serial") }
-  end
-
-  # Use unless instead of not_if otherwise OpenSSL::PKey::DH runs every time.
-  unless ::File.exists?("#{key_dir}/dh#{key_size}.pem")
-    require 'openssl'
-    file "#{key_dir}/dh#{key_size}.pem" do
-      content OpenSSL::PKey::DH.new(key_size).to_s
-      owner 'root'
-      group 'root'
-      mode  '0600'
-    end
-  end
-
-  # this should never run as default recipe has already created the CA signing cert
-  bash 'openvpn-initca' do
-    environment('KEY_CN' => "#{node['openvpn']['key']['org']} CA")
-    code <<-EOF
-      openssl req -batch -days #{node["openvpn"]["key"]["ca_expire"]} \
-        -nodes -new -newkey rsa:#{key_size} -sha1 -x509 \
-        -keyout #{node["openvpn"]["signing_ca_key"]} \
-        -out #{node["openvpn"]["signing_ca_cert"]} \
-        -config #{key_dir}/openssl.cnf
-    EOF
-    not_if { ::File.exists?(node['openvpn']['signing_ca_cert']) }
-  end
-
-  # create custom server cert
-  bash 'openvpn-server-key' do
-    environment('KEY_CN' => "server_#{k}")
-    code <<-EOF
-      openssl req -batch -days #{node["openvpn"]["key"]["expire"]} \
-        -nodes -new -newkey rsa:#{key_size} -keyout #{key_dir}/server.key \
-        -out #{key_dir}/server.csr -extensions server \
-        -config #{key_dir}/openssl.cnf && \
-      openssl ca -batch -days #{node["openvpn"]["key"]["ca_expire"]} \
-        -out #{key_dir}/server.crt -in #{key_dir}/server.csr \
-        -extensions server -md sha1 -config #{key_dir}/openssl.cnf
-    EOF
-    not_if { ::File.exists?("#{key_dir}/server.crt") }
-  end
-
-  # copy the CA cert to each daemon's keys dir to be included in user config tarball
-  file "#{key_dir}/ca.crt" do
-    content lazy { IO.read("#{node["openvpn"]["signing_ca_cert"]}") }
-    action :create
-    owner 'root'
-    group 'root'
-  end
-
-  # copy the CA key to each daemon's keys dir for generating user keys
-  file "#{key_dir}/ca.key" do
-    content lazy { IO.read("#{node["openvpn"]["signing_ca_key"]}") }
-    action :create
-    owner 'root'
-    group 'root'
   end
 
   config.store('dev', "#{v['device']}")
