@@ -57,7 +57,7 @@ if [ -z "$VPN_SERVER_NODENAME" -o -z "$USER_NAME" -o -z "$DATABAG" -o -z "$KEY_F
 fi
 
 if [ -n "$INSTANCE" ]; then
-  USER_NAME="${INSTANCE}_${USER_NAME}"
+  ITEM_NAME="${INSTANCE}_${USER_NAME}"
   KEYS_DIR="keys_${INSTANCE}"
 else
   KEYS_DIR="keys"
@@ -67,20 +67,20 @@ IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" --format yaml -a $S
 
 # Create the json file with user keys
 knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "sudo echo -n '{
-  \"id\": \"${USER_NAME}\",
-  \"crt\": \"' > ${USER_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${USER_NAME}.crt | perl -p -e 's/\\n/\\\n/' >> ${USER_NAME}.json; echo -n '\",
-  \"csr\": \"' >> ${USER_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${USER_NAME}.csr | perl -p -e 's/\\n/\\\n/' >> ${USER_NAME}.json; echo -n '\",
-  \"key\": \"' >> ${USER_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${USER_NAME}.key | perl -p -e 's/\\n/\\\n/' >> ${USER_NAME}.json; echo '\"
-}' >> ${USER_NAME}.json"
+  \"id\": \"${ITEM_NAME}\",
+  \"crt\": \"' > ${ITEM_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${ITEM_NAME}.crt | perl -p -e 's/\\n/\\\n/' >> ${ITEM_NAME}.json; echo -n '\",
+  \"csr\": \"' >> ${ITEM_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${ITEM_NAME}.csr | perl -p -e 's/\\n/\\\n/' >> ${ITEM_NAME}.json; echo -n '\",
+  \"key\": \"' >> ${ITEM_NAME}.json; sudo cat /etc/openvpn/${KEYS_DIR}/${ITEM_NAME}.key | perl -p -e 's/\\n/\\\n/' >> ${ITEM_NAME}.json; echo '\"
+}' >> ${ITEM_NAME}.json"
 
 # Pull that json file to the local machine
-scp ${SSH_USER_NAME}@${IP_ADDRESS}:${USER_NAME}.json /tmp/${USER_NAME}.json
+scp ${SSH_USER_NAME}@${IP_ADDRESS}:${ITEM_NAME}.json /tmp/${ITEM_NAME}.json
 
 # Create the data bag item with 'knife data bag from file'
-knife data bag from file $DATABAG /tmp/${USER_NAME}.json --secret-file ${KEY_FILE}
+knife data bag from file $DATABAG /tmp/${ITEM_NAME}.json --secret-file ${KEY_FILE}
 
 # Remove the data bag item on the remote vpn server
-knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "rm ${USER_NAME}.json"
+knife ssh -a $SSH_HOST_ATTRIBUTE -x $SSH_USER_NAME "name:${VPN_SERVER_NODENAME}" "rm ${ITEM_NAME}.json"
 
 # Remove the data bag item file locally
-rm /tmp/${USER_NAME}.json
+rm /tmp/${ITEM_NAME}.json

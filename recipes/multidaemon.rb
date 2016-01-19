@@ -35,7 +35,7 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
   key_dir  = "/etc/openvpn/keys_#{k}"
 
   # restore server keys
-  opsline_openvpn_server_keys 'restore #{k} openvpn server keys' do
+  opsline_openvpn_server_keys "restore #{k} openvpn server keys" do
     databag_item k
     key_dir key_dir
     action :create
@@ -47,9 +47,10 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
   config.store('cert', "#{key_dir}/server.crt")
   config.store('dh', "#{key_dir}/dh#{node['openvpn']['key']['size']}.pem")
   config.store('log', "/var/log/openvpn_#{k}.log")
+  config.store('ifconfig-pool-persist', "/etc/openvpn/ipp_#{k}.txt")
+  config.store('status', "/var/log/openvpn_#{k}-status.log")
   config.store('server', "#{v['subnet']} #{v['netmask']}")
   config.store('port', "#{v['port']}")
-
 
   # create custom server.conf using custom opsline_openvpn_conf provider
   opsline_openvpn_conf "server_#{k}" do
@@ -77,6 +78,7 @@ node['opsline-openvpn']['multidaemon']['daemons'].each { |k,v|
     key_dir key_dir
     instance k
     port "#{v['port']}".to_i
+    notifies :restart, 'service[openvpn]'
   end
 
 }

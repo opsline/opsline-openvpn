@@ -45,21 +45,22 @@ action :create do
     end
 
     unless persisted_certs.nil?
-      file "#{new_resource.key_dir}/#{u['id']}.crt" do
+      log "restoring user keys for #{databag_item_name}"
+      file "#{new_resource.key_dir}/#{databag_item_name}.crt" do
         content "#{persisted_certs['crt']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
-      file "#{new_resource.key_dir}/#{u['id']}.csr" do
+      file "#{new_resource.key_dir}/#{databag_item_name}.csr" do
         content "#{persisted_certs['csr']}"
         owner 'root'
         group 'root'
         mode  '0644'
         action user_action
       end
-      file "#{new_resource.key_dir}/#{u['id']}.key" do
+      file "#{new_resource.key_dir}/#{databag_item_name}.key" do
         content "#{persisted_certs['key']}"
         owner 'root'
         group 'root'
@@ -68,14 +69,16 @@ action :create do
       end
     else
       if user_action == :delete
+        log "deleting user keys for #{databag_item_name}"
         %w(crt csr key).each do |ext|
-          file "#{new_resource.key_dir}/#{u['id']}.#{ext}" do
+          file "#{new_resource.key_dir}/#{databag_item_name}.#{ext}" do
             action user_action
           end
         end
       else
-        execute "generate-openvpn-#{u['id']}" do
-          command "./pkitool #{u['id']}"
+        log "generating new user keys for #{databag_item_name}"
+        execute "generate-openvpn-#{databag_item_name}" do
+          command "./pkitool #{databag_item_name}"
           cwd '/etc/openvpn/easy-rsa'
           environment(
             'EASY_RSA'     => '/etc/openvpn/easy-rsa',
@@ -90,28 +93,29 @@ action :create do
             'KEY_ORG'      => node['openvpn']['key']['org'],
             'KEY_EMAIL'    => node['openvpn']['key']['email']
           )
-          not_if { ::File.exist?("#{new_resource.key_dir}/#{u['id']}.crt") }
+          not_if { ::File.exist?("#{new_resource.key_dir}/#{databag_item_name}.crt") }
         end
       end
     end
 
     %w(conf ovpn).each do |ext|
-      template "#{new_resource.key_dir}/#{u['id']}.#{ext}" do
+      log "generating new user config files for #{databag_item_name}"
+      template "#{new_resource.key_dir}/#{databag_item_name}.#{ext}" do
         source 'client.conf.erb'
         variables(
-          username: u['id'],
+          username: databag_item_name,
           port: new_resource.port
         )
         action user_action
       end
     end
 
-    tar_file = "#{u['id']}.tar.gz"
-    tar_cmd = "tar zcf #{tar_file} ca.crt #{u['id']}.crt #{u['id']}.key #{u['id']}.conf #{u['id']}.ovpn"
+    tar_file = "#{databag_item_name}.tar.gz"
+    tar_cmd = "tar zcf #{tar_file} ca.crt #{databag_item_name}.crt #{databag_item_name}.key #{databag_item_name}.conf #{databag_item_name}.ovpn"
     if node['opsline-openvpn']['tls_key']
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
-    execute "create-openvpn-tar-#{u['id']}" do
+    execute "create-openvpn-tar-#{databag_item_name}" do
       cwd new_resource.key_dir
       command tar_cmd
       action :run
