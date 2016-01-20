@@ -61,6 +61,7 @@ if [ -n "$INSTANCE" ]; then
   KEYS_DIR="keys_${INSTANCE}"
 else
   KEYS_DIR="keys"
+  ITEM_NAME="${USER_NAME}"
 fi
 
 IP_ADDRESS=$(knife search node "name:${VPN_SERVER_NODENAME}" --format yaml -a $SSH_HOST_ATTRIBUTE 2>/dev/null |grep $SSH_HOST_ATTRIBUTE |cut -d: -f2 |tr -d ' ')
