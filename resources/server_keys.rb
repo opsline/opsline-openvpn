@@ -24,4 +24,4 @@ default_action :create
 
 attribute :name, :kind_of => String, :name_attribute => true
 attribute :databag_item, :kind_of => String, :default => 'default'
-attribute :key_dir, :kind_of => String, :default => '/etc/openvpn'
+attribute :base_dir, :kind_of => String, :default => '/etc/openvpn'

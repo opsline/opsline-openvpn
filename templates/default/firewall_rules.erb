@@ -1,0 +1,6 @@
+*filter
+<% @rules.each do |r| -%>
+-A FORWARD -s <%= @source_cidr %> -d <%= r['ip'] %><% if r['protocol'] -%> -p <%= r['protocol'] %> <% end -%><% if r['port'] -%> --dport <%= r['port'] %> <% end -%> -j <%= @permission %>
+<% end -%>
+-A FORWARD -s 10.0.0.0/8 -d <%= @source_cidr %> -j ACCEPT
+-A FORWARD -s <%= @source_cidr %> -j <%= @inverse_permission %>

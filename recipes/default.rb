@@ -4,7 +4,7 @@
 #
 # Author:: Opsline
 #
-# Copyright 2014, OpsLine, LLC.
+# Copyright 2016, OpsLine, LLC.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,53 +23,98 @@
 require 'ipaddr'
 
 # disable server.conf creation by openvpn::default recipe
-# config will be created at the end of this recipe using LWRP
+# openvpn server configs will be created via opsline_openvpn_conf LWRP
 node.override['openvpn']['configure_default_server'] = false
 
-# install openvpn server
-include_recipe 'openvpn::server'
+# do not install the default iptables ruleset
+node.set['iptables']['install_rules'] = false
 
-# route53
+# install openvpn package
+include_recipe 'openvpn::install'
+
+# setup DNS for the openvpn host
 include_recipe 'opsline-openvpn::route53'
 
-# tls auth
-include_recipe 'opsline-openvpn::tls_auth'
-
-# mfa
-include_recipe 'opsline-openvpn::mfa'
-
-# restore server keys
-opsline_openvpn_server_keys 'restore default openvpn server keys' do
-  databag_item 'default'
-  key_dir '/etc/openvpn/keys'
-  action :create
+# optional mfa setup
+if node['opsline-openvpn']['mfa']['enabled']
+  include_recipe "opsline-openvpn::mfa_#{node['opsline-openvpn']['mfa']['type']}"
 end
 
-# set some good-to-have parameters
-node.override['openvpn']['config']['up'] = '/etc/openvpn/server.up.sh'
-node.override['openvpn']['config']['ifconfig-pool-persist'] = '/etc/openvpn/ipp.txt'
-node.override['openvpn']['config']['status'] = '/var/log/openvpn-status.log'
-node.override['openvpn']['config']['verb'] = '4'
-node.override['openvpn']['config']['mute'] = '10'
+# set some good-to-have parameters common to all daemons
+node.set['openvpn']['config']['status'] = '/var/log/openvpn-status.log'
+node.set['openvpn']['config']['verb'] = '4'
+node.set['openvpn']['config']['mute'] = '5'
+node.set['openvpn']['config']['log'] = node['opsline-openvpn']['log']
 
-# configure openvpn server
-openvpn_conf 'server' do
-  notifies :restart, 'service[openvpn]'
-end
+# in the case the key size is provided as string, no integer support in metadata (CHEF-4075)
+node.override['openvpn']['key']['size'] = node['openvpn']['key']['size'].to_i
 
-# configure users
-include_recipe 'opsline-openvpn::users'
+# setup each openvpn server daemon
+node['opsline-openvpn']['daemons'].each { |k,v|
 
-# calculate source CIDR for this openvpn daemon
-cidr_mask = IPAddr.new("#{node['openvpn']['netmask']}").to_i.to_s(2).count("1")
-source_cidr = "#{node['openvpn']['subnet']}/#{cidr_mask}"
-log "Using source CIDR: #{source_cidr}"
+  # clone the default server config to get common attributes for this daemon's server_*.conf template
+  config = node['openvpn']['config'].dup
 
-# iptables
-include_recipe 'iptables'
+  # import default routes
+  routes = []
+  routes << node['openvpn']['push_routes']
+  # get custom routes for this daemon; flatten routes array later
+  routes << v['push_routes'] unless v['push_routes'] == nil
 
-iptables_rule 'openvpn' do
-  variables({
-    :source_cidr => source_cidr
-  })
-end
+  # custom key dir for this daemon
+  base_dir  = "/etc/openvpn_#{k}"
+  key_dir = "#{base_dir}/keys"
+
+  # restore server keys
+  opsline_openvpn_server_keys "restore #{k} daemon openvpn server keys" do
+    databag_item k
+    base_dir base_dir
+    action :create
+  end
+
+  config.store('dev', "#{v['device']}")
+  config.store('ca', "#{key_dir}/ca.crt")
+  config.store('key', "#{key_dir}/server.key")
+  config.store('cert', "#{key_dir}/server.crt")
+  config.store('dh', "#{key_dir}/dh#{node['openvpn']['key']['size']}.pem")
+  config.store('server', "#{v['subnet']} #{v['netmask']}")
+  config.store('port', "#{v['port']}")
+  config.store('ifconfig-pool-persist', "#{base_dir}/ipp.txt")
+
+  # optional tls setup
+  if node['opsline-openvpn']['tls_key']
+    config.store('tls-auth', "#{key_dir}/#{node['opsline-openvpn']['tls_key']} 0")
+  end
+
+  # create custom server.conf using custom opsline_openvpn_conf provider
+  opsline_openvpn_conf "server_#{k}" do
+    config config
+    push_routes routes.flatten!.sort!
+    push_options node['openvpn']['push_options']
+    notifies :restart, 'service[openvpn]'
+  end
+
+  # calculate source CIDR for this openvpn daemon
+  cidr_mask = IPAddr.new("#{v['netmask']}").to_i.to_s(2).count("1")
+  source_cidr = "#{v['subnet']}/#{cidr_mask}"
+  log "Using source CIDR: #{source_cidr} for openvpn daemon: #{k}"
+
+  # install NAT POSTROUTING iptables rule to set masquerade source CIDR for vpn clients
+  iptables_rule "openvpn_#{k}" do
+    source 'openvpn.erb'
+    variables({
+      :source_cidr => source_cidr
+    })
+  end
+
+  opsline_openvpn_user_keys "user keys for openvpn daemon: #{k}" do
+    user_databag 'users'
+    user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
+    base_dir base_dir
+    instance k
+    port "#{v['port']}".to_i
+  end
+
+}
+
+include_recipe 'openvpn::service'
