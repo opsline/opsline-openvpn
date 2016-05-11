@@ -19,15 +19,14 @@
 # limitations under the License.
 #
 
+include_recipe 'iptables'
+
 # required for calculating source CIDR
 require 'ipaddr'
 
 # disable server.conf creation by openvpn::default recipe
 # openvpn server configs will be created via opsline_openvpn_conf LWRP
 node.override['openvpn']['configure_default_server'] = false
-
-# do not install the default iptables ruleset
-node.set['iptables']['install_rules'] = false
 
 # install openvpn package
 include_recipe 'openvpn::install'
@@ -80,6 +79,7 @@ node['opsline-openvpn']['daemons'].each { |k,v|
   config.store('server', "#{v['subnet']} #{v['netmask']}")
   config.store('port', "#{v['port']}")
   config.store('ifconfig-pool-persist', "#{base_dir}/ipp.txt")
+  config.store('up', "#{base_dir}/server.up.sh")
 
   # optional tls setup
   if node['opsline-openvpn']['tls_key']
