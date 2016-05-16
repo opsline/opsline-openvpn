@@ -91,7 +91,7 @@ node['opsline-openvpn']['daemons'].each do |k,v|
         ips = []
         log "resolve url #{d['url']} to private ip address(es) for firewall rule"
         require 'resolv'
-        ips = Resolv::DNS.new.getaddresses('admin.getbread.com').map(&:to_s).sort
+        ips = Resolv::DNS.new.getaddresses("#{d['url']}").map(&:to_s).sort
         
         ips.each do |ip|
           rule['ip'] = ip
