@@ -57,12 +57,14 @@ action :create do
     end
 
     begin
-      log "searching for persisted user keys in #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
+      log "Searching for persisted user keys in #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
       persisted_certs = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['users_databag'], databag_item)
-    rescue
-      persisted_certs = nil
+      log "Using #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item for openvpn user keys"
+    rescue StandardError => e
+      log "Caught exception #{e} while searching for persisted user keys in #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item}"
       log "Persisted openvpn user keys do not exist in #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
       log "New openvpn user keys will be generated and saved to #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
+      persisted_certs = nil
 
       # generate new user keys
       log "generating new openvpn user keys for #{username} for #{new_resource.instance} openvpn daemon"
@@ -83,6 +85,7 @@ action :create do
           'KEY_ORG'      => node['openvpn']['key']['org'],
           'KEY_EMAIL'    => node['openvpn']['key']['email']
         )
+        notifies :run, 'execute[create openvpn tarball for user]'
         not_if { ::File.exist?("#{key_dir}/#{username}.crt") }
       end
 
@@ -118,6 +121,7 @@ action :create do
         group 'root'
         mode  '0644'
         action user_action
+        notifies :run, 'execute[create openvpn tarball for user]'
       end
       file "#{key_dir}/#{username}.csr" do
         content persisted_certs['csr']
@@ -125,6 +129,7 @@ action :create do
         group 'root'
         mode  '0644'
         action user_action
+        notifies :run, 'execute[create openvpn tarball for user]'
       end
       file "#{key_dir}/#{username}.key" do
         content persisted_certs['key']
@@ -132,6 +137,7 @@ action :create do
         group 'root'
         mode  '0600'
         action user_action
+        notifies :run, 'execute[create openvpn tarball for user]'
       end
     else
       if user_action == :delete
@@ -164,22 +170,25 @@ action :create do
     if node['opsline-openvpn']['tls_key']
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
-    execute "create-openvpn-tar-#{databag_item}" do
+    execute 'create openvpn tarball for user' do
       cwd key_dir
       command tar_cmd
-      action :run
+      action :nothing
+      notifies :run, 'execute[sync user vpn keys to s3]'
       not_if { user_action == :delete }
     end
     file tar_file do
       action :delete
+      notifies :run, 'execute[sync user vpn keys to s3]'
       only_if { user_action == :delete }
     end
   end
 
   # sync users' vpn keysets to s3 for easy distribution
-  execute "sync-openvpn-keys-to-s3" do
+  execute "sync user vpn keys to s3" do
     cwd key_dir
     command "aws s3 sync #{key_dir} s3://#{node['opsline-openvpn']['users']['s3bucket']}/ --sse --exclude '*' --include '*.tar.gz'"
+    action :nothing
     not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
   end
 
