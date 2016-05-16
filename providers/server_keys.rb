@@ -93,9 +93,11 @@ action :create do
   end
 
   begin
+    log "Searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
     server_keys = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['server_keys_databag'], new_resource.databag_item)
     log "using #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
-  rescue
+  rescue StandardError => e
+    log "Caught exception #{e} while searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
     log "Persisted openvpn server keys do not exist in #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
     log "New openvpn server keys will be generated and saved to #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
     server_keys = nil
