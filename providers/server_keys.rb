@@ -24,9 +24,9 @@ use_inline_resources
 action :create do
 
   # create client.pem from databag and save it to disk
-  client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_client_name']}.pem"
+  client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
 
-  creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_client_name'])
+  creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
   client_username = creds['username']
   file client_key_file do
     content creds['private_key']

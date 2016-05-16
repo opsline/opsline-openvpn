@@ -24,9 +24,9 @@ use_inline_resources
 action :create do
 
   # create client.pem from databag and save it to disk
-  client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_client_name']}.pem"
+  client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
 
-  creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_client_name'])
+  creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
   client_username = creds['username']
   file client_key_file do
     content creds['private_key']
@@ -150,7 +150,7 @@ action :create do
 
         # delete the persisted user keys from the data bag
         execute "deleting persisted #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} data bag item" do
-          command "knife data bag delete #{node['opsline-openvpn']['persistence']['users_databag']} #{databag_item} --secret-file /etc/chef/encrypted_data_bag_secret  -c /etc/chef/client.rb -u #{node['opsline-openvpn']['persistence']['admin_client_name']} -k #{client_key_file}"
+          command "knife data bag delete #{node['opsline-openvpn']['persistence']['users_databag']} #{databag_item} --secret-file /etc/chef/encrypted_data_bag_secret  -c /etc/chef/client.rb -u #{node['opsline-openvpn']['persistence']['admin_databag_item']} -k #{client_key_file}"
         end
       end
     end
