@@ -36,6 +36,7 @@ action :create do
   end
 
   key_dir = "#{new_resource.base_dir}/keys"
+  user_action = nil
 
   log "Searching for users with query filter #{new_resource.user_query} in data bag #{new_resource.user_databag}"
   search(new_resource.user_databag, new_resource.user_query) do |u|
@@ -85,7 +86,7 @@ action :create do
           'KEY_ORG'      => node['openvpn']['key']['org'],
           'KEY_EMAIL'    => node['openvpn']['key']['email']
         )
-        notifies :run, 'execute[create openvpn tarball for user]'
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
         not_if { ::File.exist?("#{key_dir}/#{username}.crt") }
       end
 
@@ -121,7 +122,7 @@ action :create do
         group 'root'
         mode  '0644'
         action user_action
-        notifies :run, 'execute[create openvpn tarball for user]'
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
       file "#{key_dir}/#{username}.csr" do
         content persisted_certs['csr']
@@ -129,7 +130,7 @@ action :create do
         group 'root'
         mode  '0644'
         action user_action
-        notifies :run, 'execute[create openvpn tarball for user]'
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
       file "#{key_dir}/#{username}.key" do
         content persisted_certs['key']
@@ -137,7 +138,7 @@ action :create do
         group 'root'
         mode  '0600'
         action user_action
-        notifies :run, 'execute[create openvpn tarball for user]'
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
     else
       if user_action == :delete
@@ -173,21 +174,26 @@ action :create do
     execute 'create openvpn tarball for user' do
       cwd key_dir
       command tar_cmd
-      action :nothing
-      notifies :run, 'execute[sync user vpn keys to s3]'
-      not_if { user_action == :delete }
+      action :run
+      not_if { user_action == :delete } 
     end
-    file tar_file do
+    file 'delete openvpn tarball for deprecated user' do
+      name tar_file
       action :delete
-      notifies :run, 'execute[sync user vpn keys to s3]'
+      notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       only_if { user_action == :delete }
     end
+  end
+
+  sync_cmd = "aws s3 sync #{key_dir} s3://#{node['opsline-openvpn']['users']['s3bucket']}/ --sse --exclude '*' --include '*.tar.gz'"
+  if user_action == :delete
+    sync_cmd += " --delete"
   end
 
   # sync users' vpn keysets to s3 for easy distribution
   execute "sync user vpn keys to s3" do
     cwd key_dir
-    command "aws s3 sync #{key_dir} s3://#{node['opsline-openvpn']['users']['s3bucket']}/ --sse --exclude '*' --include '*.tar.gz'"
+    command sync_cmd
     action :nothing
     not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
   end
