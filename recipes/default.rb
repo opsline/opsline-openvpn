@@ -40,7 +40,6 @@ if node['opsline-openvpn']['mfa']['enabled']
 end
 
 # set some good-to-have parameters common to all daemons
-node.set['openvpn']['config']['status'] = '/var/log/openvpn-status.log'
 node.set['openvpn']['config']['verb'] = '4'
 node.set['openvpn']['config']['mute'] = '5'
 node.set['openvpn']['config']['log'] = node['opsline-openvpn']['log']
@@ -80,6 +79,8 @@ node['opsline-openvpn']['daemons'].each { |k,v|
   config.store('port', "#{v['port']}")
   config.store('ifconfig-pool-persist', "#{base_dir}/ipp.txt")
   config.store('up', "#{base_dir}/server.up.sh")
+  config.store('status', "/var/log/openvpn-status_#{k}.log")
+
 
   # optional tls setup
   if node['opsline-openvpn']['tls_key']
