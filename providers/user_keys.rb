@@ -184,8 +184,8 @@ action :create do
         action :run
       end
     else
-      file 'delete openvpn tarball for deprecated user' do
-        name tar_file
+      log "delete openvpn tarball #{key_dir}/#{tar_file} for deprecated user: #{username}"
+      file "#{key_dir}/#{tar_file}" do
         action :delete
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
