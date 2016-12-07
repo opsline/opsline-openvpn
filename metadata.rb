@@ -8,5 +8,5 @@ version          '0.1.3'
 
 depends 'compat_resource', '>= 12.9.1'
 depends 'iptables', '>= 2.1.1'
-depends 'openvpn', '>= 2.1.1'
+depends 'openvpn', '= 2.1.1'
 depends 'route53'
