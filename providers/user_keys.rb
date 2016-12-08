@@ -167,7 +167,7 @@ action :create do
 
     %w(conf ovpn).each do |ext|
       template "#{key_dir}/#{username}.#{ext}" do
-        source 'client.conf.erb'
+        source 'user_client.conf.erb'
         variables(
           username: username,
           port: new_resource.port

@@ -23,3 +23,4 @@ default['opsline-openvpn']['persistence']['users_databag'] = 'openvpn_users'
 default['opsline-openvpn']['persistence']['server_keys_databag'] = 'openvpn_server'
 
 default['opsline-openvpn']['daemons'] = {}
+default['opsline-openvpn']['clients'] = {}

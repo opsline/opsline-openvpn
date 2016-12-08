@@ -45,13 +45,6 @@ action :create do
 
   key_size = node['openvpn']['key']['size']
 
-  directory key_dir do
-    owner 'root'
-    group 'root'
-    mode  '0700'
-    recursive true
-  end
-
   directory "#{new_resource.base_dir}/easy-rsa" do
     owner 'root'
     group 'root'
@@ -66,20 +59,6 @@ action :create do
       group 'root'
       mode  '0755'
     end
-  end
-
-  template "#{new_resource.base_dir}/server.up.sh" do
-    cookbook 'openvpn'
-    source 'server.up.sh.erb'
-    owner 'root'
-    group 'root'
-    mode  '0755'
-  end
-
-  directory "#{new_resource.base_dir}/server.up.d" do
-    owner 'root'
-    group 'root'
-    mode  '0755'
   end
 
   file "#{key_dir}/index.txt" do
