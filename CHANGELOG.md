@@ -1,7 +1,8 @@
 # CHANGELOG for opsline-openvpn
 
 ## 0.1.4
-* refactoring and rewrite
+* added multi-client support
+* refactored code
 * locked openvpn to opsline fork
 * added attribute to enable/disable persistence
 * added attribute to override users data bag
