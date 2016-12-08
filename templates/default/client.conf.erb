@@ -12,9 +12,9 @@ resolv-retry infinite
 nobind
 persist-key
 persist-tun
-ca ca.crt
-cert <%= @config['base_dir'] %>/keys/<%= @config['username'] %>.crt
-key <%= @config['base_dir'] %>/keys/<%= @config['username'] %>.key
+ca <%= @config['base_dir'] %>/keys/ca.crt
+cert <%= @config['base_dir'] %>/keys/<%= @config['user_name'] %>.crt
+key <%= @config['base_dir'] %>/keys/<%= @config['user_name'] %>.key
 comp-lzo
 verb 3
 <% if @config['tls_key'] -%>

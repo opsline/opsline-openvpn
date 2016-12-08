@@ -89,7 +89,7 @@ node['opsline-openvpn']['daemons'].each do |k, v|
   end
 
   # restore server keys
-  opsline_openvpn_server_keys "restore #{k} daemon openvpn server keys" do
+  opsline_openvpn_server_keys "openvpn_server_keys_#{k}" do
     databag_item k
     base_dir base_dir
     action :create
@@ -108,7 +108,7 @@ node['opsline-openvpn']['daemons'].each do |k, v|
     })
   end
 
-  opsline_openvpn_user_keys "user keys for openvpn daemon: #{k}" do
+  opsline_openvpn_user_keys "openvpn_user_keys_daemon_#{k}" do
     user_databag node['opsline-openvpn']['users']['databag']
     user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
     base_dir base_dir
@@ -135,12 +135,14 @@ node['opsline-openvpn']['clients'].each do |k, v|
     notifies :restart, 'service[openvpn]'
   end
 
-  opsline_openvpn_user_keys "user keys for openvpn daemon: #{k}" do
+  opsline_openvpn_user_keys "openvpn_user_keys_client_#{k}" do
     user_databag node['opsline-openvpn']['users']['databag']
     user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
     base_dir base_dir
-    instance k
+    instance config['user_instance']
     port "#{v['port']}".to_i
+    create_config false
+    upload_config false
   end
 end
 

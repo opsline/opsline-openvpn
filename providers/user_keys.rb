@@ -116,10 +116,14 @@ action :create do
 
       if node['opsline-openvpn']['persistence']['enabled']
         log "building #{databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['users_databag']}"
-        ruby_block "read keys" do
+        ruby_block "#{databag_item} databag json" do
           block do
             ::File.open("#{key_dir}/#{databag_item}.json", "w") do |f|
               f.puts ("{ \"id\": \"#{databag_item}\",")
+              if node['opsline-openvpn']['tls_key']
+                f.puts ("\"tls\": \"#{::File.open("#{key_dir}/#{node['opsline-openvpn']['tls_key']}", "r").read().gsub(/\n/,"\\n")}\",")
+              end
+              f.puts ("\"ca\": \"#{::File.open("#{key_dir}/ca.crt", "r").read().gsub(/\n/,"\\n")}\",")
               f.puts ("\"crt\": \"#{::File.open("#{key_dir}/#{username}.crt", "r").read().gsub(/\n/,"\\n")}\",")
               f.puts ("\"csr\": \"#{::File.open("#{key_dir}/#{username}.csr", "r").read().gsub(/\n/,"\\n")}\",")
               f.puts ("\"key\": \"#{::File.open("#{key_dir}/#{username}.key", "r").read().gsub(/\n/,"\\n")}\"}")
@@ -163,6 +167,25 @@ action :create do
         action user_action
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
+      file "#{key_dir}/ca.crt" do
+        content persisted_certs['ca']
+        owner 'root'
+        group 'root'
+        mode  '0600'
+        action user_action
+        not_if "test -f #{key_dir}/ca.crt" # only for client
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
+      end
+      file "#{key_dir}/#{node['opsline-openvpn']['tls_key']}" do
+        content persisted_certs['tls']
+        owner 'root'
+        group 'root'
+        mode  '0600'
+        action user_action
+        only_if { node['opsline-openvpn']['tls_key'] } # only if tls is used
+        not_if "test -f #{key_dir}/#{node['opsline-openvpn']['tls_key']}" # only for client
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
+      end
     end
 
     %w(conf ovpn).each do |ext|
@@ -173,6 +196,7 @@ action :create do
           port: new_resource.port
         )
         action user_action
+        only_if { new_resource.create_config }
       end
     end
 
@@ -186,27 +210,30 @@ action :create do
         cwd key_dir
         command tar_cmd
         action :run
+        only_if { new_resource.create_config }
       end
     else
       log "delete openvpn tarball #{key_dir}/#{tar_file} for deprecated user: #{username}"
       file "#{key_dir}/#{tar_file}" do
         action :delete
+        only_if { new_resource.create_config }
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
     end
+
   end
 
   sync_cmd = "aws s3 sync #{key_dir} s3://#{node['opsline-openvpn']['users']['s3bucket']}/ --sse --exclude '*' --include '*.tar.gz'"
   if user_action == :delete
     sync_cmd += " --delete"
   end
-
   # sync users' vpn keysets to s3 for easy distribution
   execute "sync user vpn keys to s3" do
     cwd key_dir
     command sync_cmd
     action :nothing
     not_if { node['opsline-openvpn']['users']['s3bucket'].nil? }
+    only_if { new_resource.upload_config }
   end
 
 end

@@ -36,18 +36,21 @@ action :create do
     mode  '0700'
   end
 
-  template "#{new_resource.base_dir}/server.up.sh" do
-    cookbook 'openvpn'
-    source 'server.up.sh.erb'
+  directory "#{new_resource.base_dir}/server.up.d" do
     owner 'root'
     group 'root'
     mode  '0755'
   end
 
-  directory "#{new_resource.base_dir}/server.up.d" do
+  template "#{new_resource.base_dir}/server.up.sh" do
+    cookbook 'opsline-openvpn'
+    source 'server.up.sh.erb'
     owner 'root'
     group 'root'
     mode  '0755'
+    variables(
+      base_dir: new_resource.base_dir
+    )
   end
 
   if new_resource.type == 'client'

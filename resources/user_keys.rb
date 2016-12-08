@@ -28,3 +28,5 @@ attribute :user_query, :kind_of => String, :default => '*:*'
 attribute :base_dir, :kind_of => String, :default => '/etc/openvpn'
 attribute :port, :kind_of => Integer, :default => 1194
 attribute :instance, :kind_of => String, :default => nil
+attribute :create_config, :kind_of => [TrueClass, FalseClass], :default => true
+attribute :upload_config, :kind_of => [TrueClass, FalseClass], :default => true
