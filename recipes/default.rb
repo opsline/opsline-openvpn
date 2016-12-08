@@ -109,7 +109,7 @@ node['opsline-openvpn']['daemons'].each { |k,v|
   end
 
   opsline_openvpn_user_keys "user keys for openvpn daemon: #{k}" do
-    user_databag 'users'
+    user_databag node['opsline-openvpn']['users']['databag']
     user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
     base_dir base_dir
     instance k

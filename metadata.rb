@@ -4,7 +4,7 @@ maintainer_email 'team@opsline.com'
 license          'All rights reserved'
 description      'Installs/Configures opsline-openvpn'
 long_description 'Installs/Configures opsline-openvpn'
-version          '0.1.3'
+version          '0.1.4'
 
 depends 'compat_resource', '>= 12.9.1'
 depends 'iptables', '>= 2.1.1'

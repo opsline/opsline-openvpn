@@ -23,16 +23,18 @@ use_inline_resources
 
 action :create do
 
-  # create client.pem from databag and save it to disk
-  client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
+  if node['opsline-openvpn']['persistence']['enabled']
+    # create client.pem from databag and save it to disk
+    client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
 
-  creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
-  client_username = creds['username']
-  file client_key_file do
-    content creds['private_key']
-    owner 'root'
-    group 'root'
-    mode 0600
+    creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
+    client_username = creds['username']
+    file client_key_file do
+      content creds['private_key']
+      owner 'root'
+      group 'root'
+      mode 0600
+    end
   end
 
   key_dir = "#{new_resource.base_dir}/keys"
@@ -92,16 +94,20 @@ action :create do
     not_if { ::File.exist?("#{key_dir}/serial") }
   end
 
-  begin
-    log "Searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
-    server_keys = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['server_keys_databag'], new_resource.databag_item)
-    log "using #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
-  rescue StandardError => e
-    log "Caught exception #{e} while searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
-    log "Persisted openvpn server keys do not exist in #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
-    log "New openvpn server keys will be generated and saved to #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
-    server_keys = nil
+  server_keys = nil
+  if node['opsline-openvpn']['persistence']['enabled']
+    begin
+      log "Searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
+      server_keys = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['server_keys_databag'], new_resource.databag_item)
+      log "using #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item for openvpn server keys"
+    rescue StandardError => e
+      log "Caught exception #{e} while searching #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
+      log "Persisted openvpn server keys do not exist in #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
+      log "New openvpn server keys will be generated and saved to #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item} databag item"
+    end
+  end
 
+  if server_keys.nil?
     # Use unless instead of not_if otherwise OpenSSL::PKey::DH runs every time.
     unless ::File.exists?("#{key_dir}/dh#{key_size}.pem")
       require 'openssl'
@@ -114,7 +120,7 @@ action :create do
     end
 
     # generate a new CA cert and CA key for each openvpn server daemon
-    # NOTE: the CA cert is bundled with the client keys and is the only 
+    # NOTE: the CA cert is bundled with the client keys and is the only
     #       method used to authenticate client connections to openvpn
     bash 'openvpn-initca' do
       environment('KEY_CN' => "#{node['openvpn']['key']['org']} #{new_resource.databag_item} CA")
@@ -153,40 +159,38 @@ action :create do
       end
     end
 
-    log "building #{new_resource.databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['server_keys_databag']}"
-    ruby_block "read keys" do
-      block do
-        ::File.open("#{key_dir}/#{new_resource.databag_item}.json", "w") do |f|
-          f.puts ("{ \"id\": \"#{new_resource.databag_item}\",")
-          f.puts ("\"server_crt\": \"#{::File.open("#{key_dir}/server.crt", "r").read().gsub(/\n/,"\\n")}\",")
-          f.puts ("\"server_csr\": \"#{::File.open("#{key_dir}/server.csr", "r").read().gsub(/\n/,"\\n")}\",")
-          f.puts ("\"server_key\": \"#{::File.open("#{key_dir}/server.key", "r").read().gsub(/\n/,"\\n")}\",")
-          f.puts ("\"ca_crt\": \"#{::File.open("#{key_dir}/ca.crt", "r").read().gsub(/\n/,"\\n")}\",")
-          f.puts ("\"ca_key\": \"#{::File.open("#{key_dir}/ca.key", "r").read().gsub(/\n/,"\\n")}\",")
-          f.puts ("\"dh\": \"#{::File.open("#{key_dir}/dh#{key_size}.pem", "r").read().gsub(/\n/,"\\n")}\"")
-          if node['opsline-openvpn']['tls_key']
-            f.puts (",")
-            f.puts ("\"tls_key\": \"#{::File.open("#{key_dir}/#{node['opsline-openvpn']['tls_key']}", "r").read().gsub(/\n/,"\\n")}\"")
+    if node['opsline-openvpn']['persistence']['enabled']
+      log "building #{new_resource.databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['server_keys_databag']}"
+      ruby_block "read keys" do
+        block do
+          ::File.open("#{key_dir}/#{new_resource.databag_item}.json", "w") do |f|
+            f.puts ("{ \"id\": \"#{new_resource.databag_item}\",")
+            f.puts ("\"server_crt\": \"#{::File.open("#{key_dir}/server.crt", "r").read().gsub(/\n/,"\\n")}\",")
+            f.puts ("\"server_csr\": \"#{::File.open("#{key_dir}/server.csr", "r").read().gsub(/\n/,"\\n")}\",")
+            f.puts ("\"server_key\": \"#{::File.open("#{key_dir}/server.key", "r").read().gsub(/\n/,"\\n")}\",")
+            f.puts ("\"ca_crt\": \"#{::File.open("#{key_dir}/ca.crt", "r").read().gsub(/\n/,"\\n")}\",")
+            f.puts ("\"ca_key\": \"#{::File.open("#{key_dir}/ca.key", "r").read().gsub(/\n/,"\\n")}\",")
+            f.puts ("\"dh\": \"#{::File.open("#{key_dir}/dh#{key_size}.pem", "r").read().gsub(/\n/,"\\n")}\"")
+            if node['opsline-openvpn']['tls_key']
+              f.puts (",")
+              f.puts ("\"tls_key\": \"#{::File.open("#{key_dir}/#{node['opsline-openvpn']['tls_key']}", "r").read().gsub(/\n/,"\\n")}\"")
+            end
+            f.puts ("}")
           end
-          f.puts ("}")
         end
       end
+      require 'chef/knife' # for executing below knife command to upload data bag items
+      execute "persisting #{new_resource.databag_item}.json to data bag item #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item}" do
+        command "knife data bag from file #{node['opsline-openvpn']['persistence']['server_keys_databag']} #{key_dir}/#{new_resource.databag_item}.json --secret-file /etc/chef/encrypted_data_bag_secret -c /etc/chef/client.rb -u #{client_username} -k #{client_key_file}"
+      end
+      # delete the json file just created
+      file "#{key_dir}/#{new_resource.databag_item}.json" do
+        action :delete
+      end
     end
-    
-    require 'chef/knife' # for executing below knife command to upload data bag items
 
-    execute "persisting #{new_resource.databag_item}.json to data bag item #{node['opsline-openvpn']['persistence']['server_keys_databag']}:#{new_resource.databag_item}" do
-      command "knife data bag from file #{node['opsline-openvpn']['persistence']['server_keys_databag']} #{key_dir}/#{new_resource.databag_item}.json --secret-file /etc/chef/encrypted_data_bag_secret -c /etc/chef/client.rb -u #{client_username} -k #{client_key_file}"
-    end
-
-    # delete the json file just created
-    file "#{key_dir}/#{new_resource.databag_item}.json" do
-      action :delete
-    end
-  end
-
-  unless server_keys.nil? # after initial run, we should have each daemons server keys persisted to a data bag
-
+  else
+    # restore from persisted data
     file "#{key_dir}/ca.crt" do
       content server_keys['ca_crt']
       owner 'root'
@@ -230,6 +234,6 @@ action :create do
       mode  '0600'
       only_if { server_keys.to_hash().has_key?('tls_key') }
     end
-    
   end
+
 end
