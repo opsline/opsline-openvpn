@@ -115,6 +115,16 @@ node['opsline-openvpn']['daemons'].each do |k, v|
     instance k
     port "#{v['port']}".to_i
   end
+
+  monitrc "openvpn_server_#{k}" do
+    action v['monit'] ? :enable : :disable
+    template_cookbook "opsline-openvpn"
+    template_source "monit.conf.erb"
+    variables({
+      :daemon_name => "openvpn_server_#{k}",
+      :pid_file => "/run/openvpn/server_#{k}.pid"
+    })
+  end
 end
 
 # setup each openvpn server daemon
@@ -143,6 +153,16 @@ node['opsline-openvpn']['clients'].each do |k, v|
     port "#{v['port']}".to_i
     create_config false
     upload_config false
+  end
+
+  monitrc "openvpn_client_#{k}" do
+    action v['monit'] ? :enable : :disable
+    template_cookbook "opsline-openvpn"
+    template_source "monit.conf.erb"
+    variables({
+      :daemon_name => "openvpn_client_#{k}",
+      :pid_file => "/run/openvpn/client_#{k}.pid"
+    })
   end
 end
 

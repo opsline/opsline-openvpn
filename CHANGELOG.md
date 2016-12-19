@@ -6,6 +6,7 @@
 * locked openvpn to opsline fork
 * added attribute to enable/disable persistence
 * added attribute to override users data bag
+* added support for monit to monitor and restart processes
 
 ## 0.1.3
 * integrated multidaemon support, tls key generation, and chef-managed persistence of user and server keys into default recipe
