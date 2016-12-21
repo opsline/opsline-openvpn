@@ -14,7 +14,7 @@
 #       'firewall' => {
 #         'type' => 'whitelist',
 #         'destinations' => [
-#           { 
+#           {
 #             'environment' => 'production',
 #             'role' => 'elk',
 #             'protocol' => 'tcp',
@@ -31,7 +31,7 @@
 #       'firewall' => {
 #         'type' => 'whitelist',
 #         'destinations' => [
-#           { 
+#           {
 #             'environment' => 'development',
 #             'role' => 'elk',
 #             'protocol' => 'tcp',
@@ -68,7 +68,7 @@ node['opsline-openvpn']['daemons'].each do |k,v|
     end
 
     v['firewall']['destinations'].each do |d|
-      
+
       rule = {}
 
       # optional, but must be both used together
@@ -85,14 +85,14 @@ node['opsline-openvpn']['daemons'].each do |k,v|
         rule['ip'] = d['ip']
         rules << rule.dup
         log "creating firewall rule to #{permission} traffic from #{source_cidr} to #{rule['ip']}#{port_msg}"
-      
+
       elsif d.has_key?('url')
         query = nil # no need to run chef search query
         ips = []
         log "resolve url #{d['url']} to private ip address(es) for firewall rule"
         require 'resolv'
         ips = Resolv::DNS.new.getaddresses("#{d['url']}").map(&:to_s).sort
-        
+
         ips.each do |ip|
           rule['ip'] = ip
           rules << rule.dup
@@ -142,5 +142,3 @@ node['opsline-openvpn']['daemons'].each do |k,v|
     action rules_action
   end
 end
-
-    

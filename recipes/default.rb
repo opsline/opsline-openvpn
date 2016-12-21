@@ -48,8 +48,7 @@ node.set['openvpn']['config']['log'] = node['opsline-openvpn']['log']
 node.override['openvpn']['key']['size'] = node['openvpn']['key']['size'].to_i
 
 # setup each openvpn server daemon
-node['opsline-openvpn']['daemons'].each { |k,v|
-
+node['opsline-openvpn']['daemons'].each do |k, v|
   # clone the default server config to get common attributes for this daemon's server_*.conf template
   config = node['openvpn']['config'].dup
 
@@ -63,13 +62,6 @@ node['opsline-openvpn']['daemons'].each { |k,v|
   base_dir  = "/etc/openvpn_#{k}"
   key_dir = "#{base_dir}/keys"
 
-  # restore server keys
-  opsline_openvpn_server_keys "restore #{k} daemon openvpn server keys" do
-    databag_item k
-    base_dir base_dir
-    action :create
-  end
-
   config.store('dev', "#{v['device']}")
   config.store('ca', "#{key_dir}/ca.crt")
   config.store('key', "#{key_dir}/server.key")
@@ -81,7 +73,6 @@ node['opsline-openvpn']['daemons'].each { |k,v|
   config.store('up', "#{base_dir}/server.up.sh")
   config.store('status', "/var/log/openvpn-status_#{k}.log")
 
-
   # optional tls setup
   if node['opsline-openvpn']['tls_key']
     config.store('tls-auth', "#{key_dir}/#{node['opsline-openvpn']['tls_key']} 0")
@@ -89,10 +80,19 @@ node['opsline-openvpn']['daemons'].each { |k,v|
 
   # create custom server.conf using custom opsline_openvpn_conf provider
   opsline_openvpn_conf "server_#{k}" do
+    type 'server'
+    base_dir base_dir
     config config
     push_routes routes.flatten!.sort!
     push_options node['openvpn']['push_options']
     notifies :restart, 'service[openvpn]'
+  end
+
+  # restore server keys
+  opsline_openvpn_server_keys "openvpn_server_keys_#{k}" do
+    databag_item k
+    base_dir base_dir
+    action :create
   end
 
   # calculate source CIDR for this openvpn daemon
@@ -108,14 +108,62 @@ node['opsline-openvpn']['daemons'].each { |k,v|
     })
   end
 
-  opsline_openvpn_user_keys "user keys for openvpn daemon: #{k}" do
-    user_databag 'users'
+  opsline_openvpn_user_keys "openvpn_user_keys_daemon_#{k}" do
+    user_databag node['opsline-openvpn']['users']['databag']
     user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
     base_dir base_dir
     instance k
     port "#{v['port']}".to_i
   end
 
-}
+  monitrc "openvpn_server_#{k}" do
+    action v['monit'] ? :enable : :disable
+    template_cookbook "opsline-openvpn"
+    template_source "monit.conf.erb"
+    variables({
+      :daemon_name => "openvpn_server_#{k}",
+      :pid_file => "/run/openvpn/server_#{k}.pid"
+    })
+  end
+end
+
+# setup each openvpn server daemon
+node['opsline-openvpn']['clients'].each do |k, v|
+  # clone config
+  config = v.dup
+
+  # custom key dir for this daemon
+  base_dir = "/etc/openvpn_#{k}"
+
+  config['base_dir'] = base_dir
+  config['tls_key'] = node['opsline-openvpn']['tls_key']
+
+  opsline_openvpn_conf "client_#{k}" do
+    type 'client'
+    base_dir base_dir
+    config config
+    notifies :restart, 'service[openvpn]'
+  end
+
+  opsline_openvpn_user_keys "openvpn_user_keys_client_#{k}" do
+    user_databag node['opsline-openvpn']['users']['databag']
+    user_query "#{node['opsline-openvpn']['users']['search_key']}:#{k}"
+    base_dir base_dir
+    instance config['user_instance']
+    port "#{v['port']}".to_i
+    create_config false
+    upload_config false
+  end
+
+  monitrc "openvpn_client_#{k}" do
+    action v['monit'] ? :enable : :disable
+    template_cookbook "opsline-openvpn"
+    template_source "monit.conf.erb"
+    variables({
+      :daemon_name => "openvpn_client_#{k}",
+      :pid_file => "/run/openvpn/client_#{k}.pid"
+    })
+  end
+end
 
 include_recipe 'openvpn::service'

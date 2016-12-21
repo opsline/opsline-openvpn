@@ -23,6 +23,8 @@ actions :create, :delete
 default_action :create
 
 attribute :cookbook, kind_of: String, default: 'opsline-openvpn'
-attribute :config, kind_of: Hash
-attribute :push_routes, kind_of: Array
-attribute :push_options, kind_of: Hash
+attribute :type, kind_of: String, default: 'server'
+attribute :base_dir, :kind_of => String, :default => '/etc/openvpn'
+attribute :config, kind_of: Hash, default: Hash.new
+attribute :push_routes, kind_of: Array, default: Array.new
+attribute :push_options, kind_of: Hash, default: Hash.new

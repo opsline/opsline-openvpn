@@ -6,21 +6,17 @@
 
 client
 dev tun
-proto <%= node['openvpn']['config']['proto'] %>
-remote <%= node['openvpn']['gateway'] %> <%= @port %>
+proto <%= @config['proto'] %>
+remote <%= @config['gateway'] %> <%= @config['port'] %>
 resolv-retry infinite
 nobind
 persist-key
 persist-tun
-ca ca.crt
-cert <%= @username %>.crt
-key <%= @username %>.key
+ca <%= @config['base_dir'] %>/keys/ca.crt
+cert <%= @config['base_dir'] %>/keys/<%= @config['user_name'] %>.crt
+key <%= @config['base_dir'] %>/keys/<%= @config['user_name'] %>.key
 comp-lzo
 verb 3
-<% if node['opsline-openvpn']['tls_key'] -%>
-tls-auth <%= node['opsline-openvpn']['tls_key'] %> 1
-<% end -%>
-<% if node['opsline-openvpn']['mfa']['enabled'] -%>
-reneg-sec <%= node['opsline-openvpn']['mfa']['reneg-sec'] %>
-auth-user-pass
+<% if @config['tls_key'] -%>
+tls-auth <%= @config['base_dir'] %>/keys/<%= @config['tls_key'] %> 1
 <% end -%>

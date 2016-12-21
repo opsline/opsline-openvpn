@@ -22,9 +22,47 @@
 use_inline_resources if defined?(use_inline_resources)
 
 action :create do
+
+  directory new_resource.base_dir do
+    owner 'root'
+    group 'root'
+    mode  '0755'
+    recursive true
+  end
+
+  directory "#{new_resource.base_dir}/keys" do
+    owner 'root'
+    group 'root'
+    mode  '0700'
+  end
+
+  directory "#{new_resource.base_dir}/server.up.d" do
+    owner 'root'
+    group 'root'
+    mode  '0755'
+  end
+
+  template "#{new_resource.base_dir}/server.up.sh" do
+    cookbook 'opsline-openvpn'
+    source 'server.up.sh.erb'
+    owner 'root'
+    group 'root'
+    mode  '0755'
+    variables(
+      base_dir: new_resource.base_dir
+    )
+  end
+
+  if new_resource.type == 'client'
+    t_cookbook = 'opsline-openvpn'
+    t_source = 'client.conf.erb'
+  else
+    t_cookbook = 'openvpn'
+    t_source = 'server.conf.erb'
+  end
   template "/etc/openvpn/#{new_resource.name}.conf" do
-    cookbook 'openvpn'
-    source 'server.conf.erb'
+    cookbook t_cookbook
+    source t_source
     owner 'root'
     group 'root'
     mode 0644
