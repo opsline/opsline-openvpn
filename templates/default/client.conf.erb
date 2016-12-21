@@ -5,7 +5,7 @@
 # configuration settings.
 
 client
-dev tun
+dev <%= @config.key?('device') ? @config['device'] : 'tun' %>
 proto <%= @config['proto'] %>
 remote <%= @config['gateway'] %> <%= @config['port'] %>
 resolv-retry infinite

@@ -102,7 +102,7 @@ node['opsline-openvpn']['daemons'].each do |k, v|
 
   # install NAT POSTROUTING iptables rule to set masquerade source CIDR for vpn clients
   iptables_rule "openvpn_#{k}" do
-    source 'openvpn.erb'
+    source 'iptables_daemon.erb'
     variables({
       :source_cidr => source_cidr
     })
@@ -163,6 +163,15 @@ node['opsline-openvpn']['clients'].each do |k, v|
       :daemon_name => "openvpn_client_#{k}",
       :pid_file => "/run/openvpn/client_#{k}.pid"
     })
+  end
+
+  # install NAT POSTROUTING iptables rule to be able to be a router
+  iptables_rule "openvpn_client_#{k}" do
+    source 'iptables_client.erb'
+    variables({
+      :device => config['device']
+    })
+    only_if { config.key?('device') }
   end
 end
 
