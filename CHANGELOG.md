@@ -1,5 +1,8 @@
 # CHANGELOG for opsline-openvpn
 
+## 0.1.5
+* iptables improvements
+
 ## 0.1.4
 * added multi-client support
 * refactored code
