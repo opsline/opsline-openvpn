@@ -23,7 +23,6 @@ use_inline_resources
 
 action :create do
 
-
   if node['opsline-openvpn']['persistence']['enabled']
     # create client.pem from databag and save it to disk
     client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
@@ -54,7 +53,6 @@ action :create do
     username = u['id'] # client CN must match user data bag name to successfully authenticate with Duo MFA auth
     
     if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
-
       directory '/etc/ga' do
         owner 'root'
         group 'root'
