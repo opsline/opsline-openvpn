@@ -61,11 +61,12 @@ action :create do
       end
       execute "generate-google_auth" do
         command "google-authenticator -t -f -r 3 -R 60 -d -w 5 -s /etc/ga/#{username}"
-        #command "google-authenticator -t -f -r 3 -R 60 -d -w 5 -s /home/#{username}/.google_authenticator"
         user "#{username}"
+        creates "/etc/ga/#{username}"
       end
       execute "download-qr" do
         command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{username}@#{node.fqdn}%3Fsecret%3D'$(head -1 /etc/ga/#{username})"
+        creates "#{key_dir}/#{username}.png"    
       end
     end
 

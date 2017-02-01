@@ -25,5 +25,3 @@ cookbook_file '/etc/pam.d/openvpn' do
   mode '0644'
   action :create
 end
-
-
