@@ -17,7 +17,6 @@
 # limitations under the License.
 #
 
-# install Duo Security MFA plugin
 package 'libpam-google-authenticator'
 plugin_file = '/usr/lib/openvpn/openvpn-plugin-auth-pam.so'
 node.override['openvpn']['config']['plugin'] = [ "#{plugin_file} openvpn"]
@@ -26,3 +25,5 @@ cookbook_file '/etc/pam.d/openvpn' do
   mode '0644'
   action :create
 end
+
+

@@ -23,6 +23,7 @@ use_inline_resources
 
 action :create do
 
+
   if node['opsline-openvpn']['persistence']['enabled']
     # create client.pem from databag and save it to disk
     client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
@@ -40,6 +41,7 @@ action :create do
   user_action = nil
 
   log "Searching for users with query filter #{new_resource.user_query} in data bag #{new_resource.user_databag}"
+  
   search(new_resource.user_databag, new_resource.user_query) do |u|
 
     if u.has_key?('action') and u['action'] == "remove"
@@ -51,6 +53,16 @@ action :create do
     log "Found user #{u} with action:#{user_action}"
 
     username = u['id'] # client CN must match user data bag name to successfully authenticate with Duo MFA auth
+    
+    if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
+        execute "generate-google_auth" do
+          command "google-authenticator -t -f -r 1 -R 30 -d -w 5 -l google-authenticator -s /tmp/#{username}.sec"
+          user "#{username}"
+        end
+        execute "download-qr" do
+          command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/google-authenticator%3Fsecret%'$(head -1 /tmp/#{username}.sec)"
+       end
+    end
 
     if new_resource.instance.nil?
       databag_item = username
@@ -113,6 +125,8 @@ action :create do
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
         not_if { ::File.exist?("#{key_dir}/#{username}.crt") }
       end
+
+
 
       if node['opsline-openvpn']['persistence']['enabled']
         log "building #{databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['users_databag']}"
@@ -205,6 +219,11 @@ action :create do
     if node['opsline-openvpn']['tls_key']
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
+    if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
+      tar_cmd += " #{key_dir}/#{username}.png "
+    end
+
+
     if user_action == :create
       execute 'create openvpn tarball for user' do
         cwd key_dir
