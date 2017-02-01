@@ -41,7 +41,6 @@ action :create do
   user_action = nil
 
   log "Searching for users with query filter #{new_resource.user_query} in data bag #{new_resource.user_databag}"
-  
   search(new_resource.user_databag, new_resource.user_query) do |u|
 
     if u.has_key?('action') and u['action'] == "remove"
@@ -92,7 +91,7 @@ action :create do
 
     if user_action == :delete
       # even if we didn't have persisted certs in the data bag, delete any existing user keys/certs on the vpn server
-      log "Deleting persisted user keys from this  and #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
+      log "Deleting persisted user keys from this host and #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
       %w(crt csr key).each do |ext|
         file "#{key_dir}/#{username}.#{ext}" do
           action user_action
@@ -133,8 +132,6 @@ action :create do
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
         not_if { ::File.exist?("#{key_dir}/#{username}.crt") }
       end
-
-
 
       if node['opsline-openvpn']['persistence']['enabled']
         log "building #{databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['users_databag']}"
@@ -230,8 +227,6 @@ action :create do
     if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
       tar_cmd += " #{username}.png "
     end
-
-
     if user_action == :create
       execute 'create openvpn tarball for user' do
         cwd key_dir
