@@ -55,13 +55,15 @@ action :create do
     username = u['id'] # client CN must match user data bag name to successfully authenticate with Duo MFA auth
     
     if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
-        execute "generate-google_auth" do
-          command "google-authenticator -t -f -r 1 -R 30 -d -w 5 -l google-authenticator -s /tmp/#{username}.sec"
-          user "#{username}"
-        end
-        execute "download-qr" do
-          command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/google-authenticator%3Fsecret%'$(head -1 /tmp/#{username}.sec)"
-       end
+
+      execute "generate-google_auth" do
+        command "google-authenticator -t -f -r 3 -R 60 -d -w 5 -s /home/#{username}/.google_authenticator"
+        user "#{username}"
+      end
+      execute "download-qr" do
+        command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{username}@#{node.fqdn}%3Fsecret%3D'$(head -1 /home/#{username}/.google_authenticator)"
+        #command "echo 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{node.fqdn}%3Fsecret%3D'$(head -1 /tmp/#{username}.sec) > /tmp/paul"
+      end
     end
 
     if new_resource.instance.nil?
@@ -84,7 +86,7 @@ action :create do
 
     if user_action == :delete
       # even if we didn't have persisted certs in the data bag, delete any existing user keys/certs on the vpn server
-      log "Deleting persisted user keys from this host and #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
+      log "Deleting persisted user keys from this  and #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
       %w(crt csr key).each do |ext|
         file "#{key_dir}/#{username}.#{ext}" do
           action user_action
@@ -220,7 +222,7 @@ action :create do
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
     if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
-      tar_cmd += " #{key_dir}/#{username}.png "
+      tar_cmd += " #{username}.png "
     end
 
 
