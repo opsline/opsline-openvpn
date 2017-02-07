@@ -18,11 +18,16 @@
 #
 
 package 'libpam-google-authenticator'
-plugin_file = '/usr/lib/openvpn/openvpn-plugin-auth-pam.so'
-node.override['openvpn']['config']['plugin'] = [ "#{plugin_file} openvpn"]
+node.override['openvpn']['config']['plugin'] = ['/usr/lib/openvpn/openvpn-plugin-auth-pam.so openvpn']
 cookbook_file '/etc/pam.d/openvpn' do
   source 'openvpn'
-  mode '0644'
+  mode 0644
   action :create
-end 
+end
 
+directory '/etc/ga' do
+  owner 'root'
+  group 'root'
+  mode 0777
+  action :create
+end
