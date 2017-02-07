@@ -28,6 +28,9 @@ action :create do
     client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
     creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
     client_username = creds['username']
+    log "XXX #{client_username}"
+    log "XXX #{creds}"
+    
     file client_key_file do
       content creds['private_key']
       owner 'root'
@@ -63,6 +66,7 @@ action :create do
         command "google-authenticator -t -f -r 3 -R 60 -d -w 5 -s /etc/ga/#{username}"
         user "#{username}"
         creates "/etc/ga/#{username}"
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
       execute "download-qr" do
         command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{username}@#{node.fqdn}%3Fsecret%3D'$(head -1 /etc/ga/#{username})"
@@ -224,7 +228,7 @@ action :create do
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
     if node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type']=='googleauth'
-      tar_cmd += " #{username}.png "
+      tar_cmd += " #{username}.png /etc/ga/#{username}"
     end
     if user_action == :create
       execute 'create openvpn tarball for user' do
@@ -232,6 +236,7 @@ action :create do
         command tar_cmd
         action :run
         only_if { new_resource.create_config }
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
     else
       log "delete openvpn tarball #{key_dir}/#{tar_file} for deprecated user: #{username}"
