@@ -1,6 +1,7 @@
 # CHANGELOG for opsline-openvpn
 
 ## 0.1.6
+* do not require 'monit' hash in server data bag config
 * fix removal of deleted users' tarballs from S3 bucket
 
 ## 0.1.5
