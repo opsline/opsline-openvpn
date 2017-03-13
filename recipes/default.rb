@@ -116,15 +116,20 @@ node['opsline-openvpn']['daemons'].each do |k, v|
     port "#{v['port']}".to_i
   end
 
-  monitrc "openvpn_server_#{k}" do
-    action v['monit'] ? :enable : :disable
-    template_cookbook "opsline-openvpn"
-    template_source "monit.conf.erb"
-    variables({
-      :daemon_name => "openvpn_server_#{k}",
-      :pid_file => "/run/openvpn/server_#{k}.pid"
-    })
+  if v['monit']
+    include_recipe 'monit'
+
+    monitrc "openvpn_server_#{k}" do
+      action :enable
+      template_cookbook "opsline-openvpn"
+      template_source "monit.conf.erb"
+      variables({
+        :daemon_name => "openvpn_server_#{k}",
+        :pid_file => "/run/openvpn/server_#{k}.pid"
+      })
+    end
   end
+  
 end
 
 # setup each openvpn server daemon
