@@ -28,6 +28,7 @@ action :create do
     client_key_file = "/etc/chef/#{node['opsline-openvpn']['persistence']['admin_databag_item']}.pem"
     creds = Chef::EncryptedDataBagItem.load(node['opsline-openvpn']['persistence']['admin_data_bag'], node['opsline-openvpn']['persistence']['admin_databag_item'])
     client_username = creds['username']
+
     file client_key_file do
       content creds['private_key']
       owner 'root'
@@ -49,6 +50,8 @@ action :create do
     end
 
     log "Found user #{u} with action:#{user_action}"
+
+    googleauth_flag = node['opsline-openvpn']['mfa']['enabled'] && node['opsline-openvpn']['mfa']['type'] == 'googleauth'
 
     username = u['id'] # client CN must match user data bag name to successfully authenticate with Duo MFA auth
 
@@ -73,10 +76,15 @@ action :create do
     if user_action == :delete
       # even if we didn't have persisted certs in the data bag, delete any existing user keys/certs on the vpn server
       log "Deleting persisted user keys from this host and #{node['opsline-openvpn']['persistence']['users_databag']}:#{databag_item} databag item"
-      %w(crt csr key).each do |ext|
+      %w(crt csr key png).each do |ext|
         file "#{key_dir}/#{username}.#{ext}" do
           action user_action
         end
+      end
+
+      file "/etc/ga/#{username}" do
+        action user_action
+        only_if { googleauth_flag }
       end
 
       if node['opsline-openvpn']['persistence']['enabled']
@@ -114,6 +122,19 @@ action :create do
         not_if { ::File.exist?("#{key_dir}/#{username}.crt") }
       end
 
+      execute "generate-google_auth-#{username}" do
+        command "google-authenticator -t -f -r 3 -R 60 -d -w 5 -s /etc/ga/#{username}"
+        user "#{username}"
+        creates "/etc/ga/#{username}"
+        only_if { googleauth_flag }
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
+      end
+      execute "download-qr-#{username}" do
+        command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{username}@#{node.fqdn}%3Fsecret%3D'$(head -1 /etc/ga/#{username})"
+        creates "#{key_dir}/#{username}.png"
+        only_if { googleauth_flag }
+      end
+
       if node['opsline-openvpn']['persistence']['enabled']
         log "building #{databag_item}.json file to be uploaded to data bag #{node['opsline-openvpn']['persistence']['users_databag']}"
         ruby_block "#{databag_item} databag json" do
@@ -127,6 +148,7 @@ action :create do
               f.puts ("\"crt\": \"#{::File.open("#{key_dir}/#{username}.crt", "r").read().gsub(/\n/,"\\n")}\",")
               f.puts ("\"csr\": \"#{::File.open("#{key_dir}/#{username}.csr", "r").read().gsub(/\n/,"\\n")}\",")
               f.puts ("\"key\": \"#{::File.open("#{key_dir}/#{username}.key", "r").read().gsub(/\n/,"\\n")}\"}")
+              f.puts ("\"google_auth\": \"#{::File.open("/etc/ga/#{username}", "r").read().gsub(/\n/,"\\n")}\"}") if googleauth_flag
             end
           end
         end
@@ -186,6 +208,21 @@ action :create do
         not_if "test -f #{key_dir}/#{node['opsline-openvpn']['tls_key']}" # only for client
         notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
+      file "/etc/ga/#{username}" do
+        content persisted_certs['google_auth']
+        owner username
+        group username
+        mode  '0400'
+        action user_action
+        only_if { node['opsline-openvpn']['google_auth'] } # only if google_auth is used
+        only_if { googleauth_flag }
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
+      end
+      execute "download-qr#{username}" do
+        command "curl -o #{key_dir}/#{username}.png 'https://www.google.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/#{username}@#{node.fqdn}%3Fsecret%3D'$(head -1 /etc/ga/#{username})"
+        creates "#{key_dir}/#{username}.png"
+        only_if { googleauth_flag }
+      end
     end
 
     %w(conf ovpn).each do |ext|
@@ -205,12 +242,16 @@ action :create do
     if node['opsline-openvpn']['tls_key']
       tar_cmd += " #{node['opsline-openvpn']['tls_key']}"
     end
+    if googleauth_flag
+      tar_cmd += " #{username}.png /etc/ga/#{username}"
+    end
     if user_action == :create
       execute 'create openvpn tarball for user' do
         cwd key_dir
         command tar_cmd
         action :run
         only_if { new_resource.create_config }
+        notifies :run, 'execute[sync user vpn keys to s3]', :delayed
       end
     else
       log "delete openvpn tarball #{key_dir}/#{tar_file} for deprecated user: #{username}"

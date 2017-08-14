@@ -1,0 +1,2 @@
+@include common-account
+auth    required  pam_google_authenticator.so secret=/etc/ga/${USER}
